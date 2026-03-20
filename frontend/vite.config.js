@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const repoName = "turbojet-web-tool";
+const repoName = "Turbojet-Project";
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
