@@ -49,7 +49,7 @@ Station | Description
 3 | Compressor exit
 4 | Combustor exit
 5 | Turbine exit
-9 | Nozzle exit
+e | Nozzle exit
 
 The solver tracks Mach number, total pressure, total temperature, and velocity across these stations.
 
