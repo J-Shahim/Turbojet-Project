@@ -232,7 +232,7 @@ body {
 }
 
 .table-wrapper--stations {
-  overflow-x: visible;
+  overflow-x: auto;
 }
 
 .table-section table {
@@ -248,6 +248,12 @@ body {
 .table-section--stations th,
 .table-section--stations td {
   white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .table-section--stations th {
+    white-space: normal;
+  }
 }
 
 .table-section--stations {
