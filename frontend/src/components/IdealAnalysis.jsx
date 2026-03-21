@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import Plot from "react-plotly.js";
 import LatexText from "./LatexText";
+import TableView from "./TableView";
 
 export default function IdealAnalysis({ data }) {
   if (!data) {
@@ -34,6 +36,82 @@ export default function IdealAnalysis({ data }) {
   const summaryLatex = params
     ? String.raw`\tau_r=${params.tau_r_ref.toFixed(2)},\ \tau_c=${params.tau_c_ref.toFixed(2)},\ \tau_\lambda=${params.tau_lambda.toFixed(2)},\ \tau_f=${params.tau_f.toFixed(1)}`
     : "";
+
+  const summaryTable = useMemo(() => {
+    if (!series?.tau_c?.x?.length && !series?.tau_r?.x?.length) {
+      return null;
+    }
+    const format = (value, digits = 4) => (Number.isFinite(value) ? value.toFixed(digits) : "--");
+    const rangeOf = (values) => {
+      if (!Array.isArray(values) || values.length === 0) {
+        return null;
+      }
+      const clean = values.filter((val) => Number.isFinite(val));
+      if (!clean.length) {
+        return null;
+      }
+      return { min: Math.min(...clean), max: Math.max(...clean) };
+    };
+    const maxOf = (xs, ys) => {
+      if (!Array.isArray(xs) || !Array.isArray(ys) || xs.length !== ys.length) {
+        return null;
+      }
+      let maxVal = -Infinity;
+      let maxX = null;
+      ys.forEach((val, idx) => {
+        if (!Number.isFinite(val)) {
+          return;
+        }
+        if (val > maxVal) {
+          maxVal = val;
+          maxX = xs[idx];
+        }
+      });
+      if (!Number.isFinite(maxVal) || !Number.isFinite(maxX)) {
+        return null;
+      }
+      return { x: maxX, y: maxVal };
+    };
+    const rangeLabel = (values) => {
+      const range = rangeOf(values);
+      if (!range) {
+        return "--";
+      }
+      return `${format(range.min, 3)} - ${format(range.max, 3)}`;
+    };
+    const peakLabel = (peak) => {
+      if (!peak) {
+        return "--";
+      }
+      return `${format(peak.y)} @ ${format(peak.x, 3)}`;
+    };
+
+    const rows = [];
+    if (series?.tau_c?.x?.length) {
+      rows.push({
+        Sweep: "tau_c",
+        Range: rangeLabel(series.tau_c.x),
+        tbar_max: peakLabel(maxOf(series.tau_c.x, series.tau_c.tbar)),
+        isp_max: peakLabel(maxOf(series.tau_c.x, series.tau_c.isp))
+      });
+    }
+    if (series?.tau_r?.x?.length) {
+      rows.push({
+        Sweep: "tau_r",
+        Range: rangeLabel(series.tau_r.x),
+        tbar_max: peakLabel(maxOf(series.tau_r.x, series.tau_r.tbar)),
+        isp_max: peakLabel(maxOf(series.tau_r.x, series.tau_r.isp))
+      });
+    }
+
+    if (!rows.length) {
+      return null;
+    }
+    return {
+      columns: ["Sweep", "Range", "tbar_max", "isp_max"],
+      rows
+    };
+  }, [series]);
 
   return (
     <div>
@@ -146,6 +224,7 @@ export default function IdealAnalysis({ data }) {
           </div>
         </div>
       </div>
+      {summaryTable ? <TableView title="Tau Sweep Summary" table={summaryTable} /> : null}
     </div>
   );
 }

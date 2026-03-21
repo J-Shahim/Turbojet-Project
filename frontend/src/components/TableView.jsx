@@ -4,28 +4,77 @@ const LATEX_HEADERS = {
   "A": "A",
   "A*": "A^*",
   "A/A*": "A/A^*",
+  "Ae/A0": "A_e/A_0",
+  "Ae/A8": "A_e/A_8",
   "P": "P",
   "Pt": "P_t",
   "Pt/Pt0": "P_t/P_{t0}",
+  "Pe/P0": "P_e/P_0",
   "P/Pt": "P/P_t",
   "T": "T",
   "Tt": "T_t",
   "Tt/Tt0": "T_t/T_{t0}",
   "T/Tt": "T/T_t",
+  "Tbar": "\\mathbb{T}/(P_0A_0)",
+  "tbar_max": "\\mathbb{T}_{max}",
   "M": "M",
+  "Me": "M_e",
+  "U": "U",
+  "Ue/U0": "U_e/U_0",
+  "isp_max": "(I_{sp}g/a_0)_{max}",
   "f(M)": "f(M)",
+  "f(M2)": "f(M_2)",
   "mdot": "\\dot m",
   "tau": "\\tau",
+  "tau_c": "\\tau_c",
+  "tau_r": "\\tau_r",
   "pi": "\\pi",
+  "pi_c": "\\pi_c",
   "ratio": "ratio"
+};
+
+const STATION_UNITS = {
+  "A": "m^2",
+  "A*": "m^2",
+  "A/A*": "D.L.",
+  "P": "kPa",
+  "Pt": "kPa",
+  "Pt/Pt0": "D.L.",
+  "P/Pt": "D.L.",
+  "T": "K",
+  "Tt": "K",
+  "Tt/Tt0": "D.L.",
+  "T/Tt": "D.L.",
+  "M": "D.L.",
+  "U": "m/s",
+  "f(M)": "D.L.",
+  "mdot": "kg/s"
 };
 
 function renderHeader(label) {
   const latex = LATEX_HEADERS[label];
-  if (!latex) {
-    return label;
+  if (latex) {
+    return <LatexText latex={latex} />;
   }
-  return <LatexText latex={latex} />;
+
+  if (typeof label === "string") {
+    const unitMatch = label.match(/^(.+?)\s*\(([^)]+)\)$/);
+    if (unitMatch) {
+      const base = unitMatch[1].trim();
+      const unit = unitMatch[2].trim();
+      const baseLatex = LATEX_HEADERS[base];
+      if (baseLatex) {
+        return (
+          <span className="table-header">
+            <LatexText latex={baseLatex} />
+            <span className="table-unit">({unit})</span>
+          </span>
+        );
+      }
+    }
+  }
+
+  return label;
 }
 
 function renderMixedLatex(value) {
@@ -86,9 +135,11 @@ export default function TableView({ title, table }) {
         <table>
           <thead>
             <tr>
-              {table.columns.map((col) => (
-                <th key={col}>{renderHeader(col)}</th>
-              ))}
+              {table.columns.map((col) => {
+                const unit = title === "Stations" ? STATION_UNITS[col] : null;
+                const label = unit ? `${col} (${unit})` : col;
+                return <th key={col}>{renderHeader(label)}</th>;
+              })}
             </tr>
           </thead>
           <tbody>

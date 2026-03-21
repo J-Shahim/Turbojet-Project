@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "./components/Tabs";
 import InputsPanel from "./components/InputsPanel";
 import TableView from "./components/TableView";
@@ -35,6 +35,7 @@ const DEFAULT_INPUTS = {
   A15: 12.0,
   A2: 14.0,
   A3: 2.5,
+  A4: 1.0,
   A5: 14.0,
   A8: 4.0,
   Ae: 0.0,
@@ -68,6 +69,7 @@ export default function App() {
   const [stripRevision, setStripRevision] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoComputeRef = useRef(false);
 
   const handleInputChange = (key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -109,6 +111,14 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (autoComputeRef.current) {
+      return;
+    }
+    autoComputeRef.current = true;
+    handleCompute();
+  }, []);
+
   const handleStripInputChange = (key, value) => {
     setStripInputs((prev) => ({ ...(prev || {}), [key]: value }));
   };
@@ -120,10 +130,6 @@ export default function App() {
       setStripInputs(stripModel.params);
     }
   };
-
-  useEffect(() => {
-    handleCompute();
-  }, []);
 
   const warnings = useMemo(() => tables?.warnings || [], [tables]);
   const computedAe = useMemo(() => {

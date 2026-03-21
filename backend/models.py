@@ -19,6 +19,7 @@ class MK1Inputs(BaseModel):
     A15: float = Field(12.0, description="Station 1.5 area")
     A2: float = Field(14.0, description="Station 2 area")
     A3: float = Field(2.5, description="Station 3 area")
+    A4: float = Field(1.0, description="Station 4 area")
     A5: float = Field(14.0, description="Station 5 area")
     A8: float = Field(4.0, description="Station 8 area")
     Ae: float = Field(0.0, description="Exit area")

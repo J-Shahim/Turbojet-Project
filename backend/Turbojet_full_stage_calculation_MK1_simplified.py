@@ -40,6 +40,7 @@ def _latexize_headers(df):
         "Tt/Tt0": r"\(T_t/T_{t0}\)",
         "T/Tt": r"\(T/T_t\)",
         "M": r"\(M\)",
+        "U": r"\(U\)",
         "f(M)": r"\(f(M)\)",
         "mdot": r"\(\dot m\)",
         "tau": r"\(\tau\)",
@@ -328,13 +329,14 @@ def compute_state(inputs):
         }
     )
 
-    m4 = 1.0
-    tau_m4 = tau_from_m(m4, gamma)
-    t4 = tt4 / tau_m4
-
-    state.update({"M4": m4, "tau_M4": tau_m4, "T4": t4})
+    m4 = None
+    tau_m4 = None
+    t4 = None
 
     a4s = 1.0
+    a4_val = inputs.get("A4")
+    if a4_val is None or not math.isfinite(float(a4_val)):
+        a4_val = a4s
     a4s_over_a8 = a4s / inputs["A8"]
     expo = 2.0 * (gamma - 1.0) / (gamma + 1.0)
     tau_t = a4s_over_a8**expo
@@ -529,6 +531,14 @@ def compute_state(inputs):
         pi = pi_from_tau(tau, gamma)
         return tt_value / tau, pt_value / pi
 
+    def velocity_from_m(mach, temp):
+        if mach is None or temp is None:
+            return None
+        try:
+            return float(mach) * math.sqrt(gamma * r_value * float(temp))
+        except Exception:
+            return None
+
     t1, p1 = static_from_m(m1, tt0, pt0)
     t15, p15 = static_from_m(m15, tt0, pt0)
     t2, p2 = static_from_m(m2, tt0, pt0)
@@ -588,7 +598,8 @@ def compute_state(inputs):
 
     tau_lambda_eff = results.get("tau_lambda_new", tau_lambda)
     tt4_eff = results.get("Tt4_new", tt4)
-    t4 = tt4_eff / max(tau_m4, 1e-12)
+    if tau_m4 is not None and tt4_eff is not None:
+        t4 = tt4_eff / max(tau_m4, 1e-12)
     tau_c_eff = 1.0 + ((1.0 + f_fuel) * tau_lambda_eff / tau_r) * (1.0 - tau_t)
     pi_c_eff = results.get("pi_c_new")
     if pi_c_eff is None or not math.isfinite(float(pi_c_eff)):
@@ -600,8 +611,7 @@ def compute_state(inputs):
     pt4_eff = pt0 * pi_d_used * pi_c_eff * pi_b
     pt3 = pt4_eff / max(pi_b, 1e-12)
 
-    pi_m4 = pi_from_tau(tau_from_m(1.0, gamma), gamma)
-    p4 = pt4_eff / max(pi_m4, 1e-12)
+    p4 = None
 
     tt5_eff = tt4_eff * tau_t
     pt5_eff = pt4_eff * pi_t
@@ -742,6 +752,16 @@ def compute_state(inputs):
             "P3": p3,
         }
     )
+
+    if p3 is not None and pt4_eff is not None and gamma is not None and gamma > 1.0:
+        if p3 > 0.0:
+            p4 = p3
+            pi_m4 = pt4_eff / p4 if p4 > 0.0 else None
+            if pi_m4 is not None and pi_m4 >= 1.0:
+                tau_m4 = pi_m4 ** ((gamma - 1.0) / gamma)
+                m4 = math.sqrt(max(0.0, 2.0 * (tau_m4 - 1.0) / (gamma - 1.0)))
+                t4 = tt4_eff / max(tau_m4, 1e-12) if tt4_eff is not None else None
+        state.update({"M4": m4, "tau_M4": tau_m4, "T4": t4, "P4": p4})
 
     pi_total = pi_d_used * pi_c_eff * pi_b * pi_t * pi_n
     pt_e = pt0 * pi_total
@@ -940,8 +960,11 @@ def compute_state(inputs):
         mdot3_source = mdot2 if mdot2 is not None else (mdot1 if mdot1 is not None else mdot0)
 
     a_star_inlet = astar_inlet
-    a_star_core = a4s
+    f_m4_val = f_mass(m4, gamma) if m4 is not None else None
+    a_star_core = a4_val * f_m4_val if (a4_val is not None and f_m4_val is not None) else a4s
     a_star_5 = state.get("A5s")
+    if a_star_core is not None:
+        state["A4s"] = a_star_core
 
     station_rows = [
         {
@@ -960,6 +983,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt0),
             "T/Tt": t_over_tt(t0, tt0),
             "M": m0,
+            "U": velocity_from_m(m0, t0),
             "f(M)": f_m0,
             "mdot": mdot_from_values(a0, pt0, tt0, f_m0, gamma, r_value),
         },
@@ -979,6 +1003,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt1),
             "T/Tt": t_over_tt(t1, tt1),
             "M": m1,
+            "U": velocity_from_m(m1, t1),
             "f(M)": f_m1,
             "mdot": mdot_from_values(inputs.get("A1"), pt1, tt1, f_m1, gamma, r_value),
         },
@@ -998,6 +1023,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt15),
             "T/Tt": t_over_tt(t15, tt15),
             "M": m15,
+            "U": velocity_from_m(m15, t15),
             "f(M)": f_m15,
             "mdot": mdot_from_values(inputs.get("A1.5"), pt15, tt15, f_m15, gamma, r_value),
         },
@@ -1017,6 +1043,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt2),
             "T/Tt": t_over_tt(t2, tt2),
             "M": m2_val_effective,
+            "U": velocity_from_m(m2_val_effective, t2),
             "f(M)": f_m2_val,
             "mdot": mdot2_table,
         },
@@ -1036,27 +1063,29 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt3),
             "T/Tt": t_over_tt(t3, tt3),
             "M": m3,
+            "U": velocity_from_m(m3, t3),
             "f(M)": f_m3,
             "mdot": mdot3_source,
         },
         {
             "station": "4",
-            "A": a4s,
+            "A": a4_val,
             "A*": a_star_core,
-            "A/A*": a4s / a_star_core if a_star_core else None,
+            "A/A*": a4_val / a_star_core if a_star_core else None,
             "shock": None,
             "choked": None,
-            "P": state.get("P4"),
+            "P": p4,
             "Pt": pt4_eff,
             "Pt/Pt0": pt_ratio(pt4_eff),
-            "P/Pt": p_over_pt(state.get("P4"), pt4_eff),
+            "P/Pt": p_over_pt(p4, pt4_eff),
             "T": t4,
             "Tt": tt4_eff,
             "Tt/Tt0": tt_ratio(tt4_eff),
             "T/Tt": t_over_tt(t4, tt4_eff),
             "M": m4,
-            "f(M)": f_mass(1.0, gamma),
-            "mdot": mdot_from_values(a4s, pt4_eff, tt4_eff, f_mass(1.0, gamma), gamma, r_value),
+            "U": velocity_from_m(m4, t4),
+            "f(M)": f_m4_val,
+            "mdot": mdot_core,
         },
         {
             "station": "5",
@@ -1074,6 +1103,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt5_eff),
             "T/Tt": t_over_tt(state.get("T5"), tt5_eff),
             "M": state.get("M5"),
+            "U": velocity_from_m(state.get("M5"), state.get("T5")),
             "f(M)": state.get("f_M5"),
             "mdot": mdot_from_values(inputs.get("A5"), state.get("Pt5"), tt5_eff, state.get("f_M5"), gamma, r_value),
         },
@@ -1093,6 +1123,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt_e),
             "T/Tt": t_over_tt(t8, tt_e),
             "M": m8,
+            "U": velocity_from_m(m8, t8),
             "f(M)": f_m8_val,
             "mdot": mdot_from_values(inputs.get("A8"), pt_e, tt_e, f_m8_val, gamma, r_value),
         },
@@ -1112,6 +1143,7 @@ def compute_state(inputs):
             "Tt/Tt0": tt_ratio(tt_e),
             "T/Tt": t_over_tt(te, tt_e),
             "M": me,
+            "U": velocity_from_m(me, te),
             "f(M)": f_me_val,
             "mdot": mdot_from_values(ae, pt_e, tt_e, f_me_val, gamma, r_value),
         },
@@ -1133,6 +1165,7 @@ def compute_state(inputs):
         "Tt/Tt0",
         "T/Tt",
         "M",
+        "U",
         "f(M)",
         "mdot",
     ]
@@ -1158,6 +1191,7 @@ def compute_state(inputs):
         "Tt/Tt0",
         "T/Tt",
         "M",
+        "U",
         "f(M)",
         "mdot",
     ]
@@ -1173,6 +1207,7 @@ def compute_state(inputs):
         "Tt/Tt0": r"\(T_t / T_{t0}\)",
         "T/Tt": r"\(T / T_t\)",
         "M": r"\(M\) from \(A/A^*\) or \(f(M)\)",
+        "U": r"\(U = M\sqrt{\gamma R T}\)",
         "f(M)": r"\(f(M)\)",
         "mdot": r"\(\dot m = \frac{P_t A}{\sqrt{T_t}}\sqrt{\gamma/R}\, f(M)\)",
     }
@@ -1183,7 +1218,7 @@ def compute_state(inputs):
         ("1.5", "A*"): r"\(A^* = A_0 f(M_0)\)",
         ("2", "A*"): r"\(A^* = A_0 f(M_0)\)",
         ("3", "A*"): r"\(A_3^* = A_3 f(M_3)\)",
-        ("4", "A*"): r"\(A_4^*\) (from \(\dot m\), \(M_4=1\))",
+        ("4", "A*"): r"\(A_4^* = A_4 f(M_4)\)",
         ("5", "A*"): r"\(A_5^* = A_5 f(M_5)\)",
         ("8", "A*"): r"\(A_8^* = A_8 f(M_8)\)",
         ("e", "A*"): r"\(A_e^* = A_e f(M_e)\)",

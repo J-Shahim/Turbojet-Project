@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import { postJson } from "../../api/client";
 import LatexText from "../LatexText";
+import TableView from "../TableView";
 import AnalysisInputs from "./AnalysisInputs";
 
 const DEFAULT_INPUTS = {
@@ -15,13 +16,13 @@ const DEFAULT_INPUTS = {
 };
 
 const INPUT_FIELDS = [
-  { key: "gamma", label: "\\gamma", latex: true, step: 0.01, min: 1.05, max: 1.67 },
-  { key: "M0", label: "M_0", latex: true, step: 0.05, min: 0.1, max: 8.0 },
-  { key: "Tte_over_T0", label: "T_{te}/T_0", latex: true, step: 0.01, min: 0.2, max: 12.0 },
-  { key: "Pte_over_P0", label: "P_{te}/P_0", latex: true, step: 0.05, min: 0.2, max: 120.0 },
-  { key: "A8_over_A0", label: "A_8/A_0", latex: true, step: 0.001, min: 0.001, max: 1.0 },
-  { key: "Me_pick", label: "M_e\\ (pick)", latex: true, step: 0.01, min: 1.0, max: 12.0 },
-  { key: "npts", label: "npts", latex: false, step: 50, min: 100, max: 3000 }
+  { key: "gamma", label: "\\gamma", latex: true, step: 0.01, min: 1.05, max: 1.67, unit: "D.L." },
+  { key: "M0", label: "M_0", latex: true, step: 0.05, min: 0.1, max: 8.0, unit: "D.L." },
+  { key: "Tte_over_T0", label: "T_{te}/T_0", latex: true, step: 0.01, min: 0.2, max: 12.0, unit: "D.L." },
+  { key: "Pte_over_P0", label: "P_{te}/P_0", latex: true, step: 0.05, min: 0.2, max: 120.0, unit: "D.L." },
+  { key: "A8_over_A0", label: "A_8/A_0", latex: true, step: 0.001, min: 0.001, max: 1.0, unit: "D.L." },
+  { key: "Me_pick", label: "M_e\\ (pick)", latex: true, step: 0.01, min: 1.0, max: 12.0, unit: "D.L." },
+  { key: "npts", label: "npts", latex: false, step: 50, min: 100, max: 3000, unit: "#" }
 ];
 
 export default function AnalysisTbarVsMe() {
@@ -29,6 +30,7 @@ export default function AnalysisTbarVsMe() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoComputeRef = useRef(false);
 
   const handleChange = (key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -48,6 +50,10 @@ export default function AnalysisTbarVsMe() {
   };
 
   useEffect(() => {
+    if (autoComputeRef.current) {
+      return;
+    }
+    autoComputeRef.current = true;
     handleCompute();
   }, []);
 
@@ -92,6 +98,25 @@ export default function AnalysisTbarVsMe() {
     ? String.raw`\gamma=${data.params.gamma.toFixed(2)},\ M_0=${data.params.m0.toFixed(2)},\ T_{te}/T_0=${data.params.tte_over_t0.toFixed(3)},\ P_{te}/P_0=${data.params.pte_over_p0.toFixed(3)},\ A_8/A_0=${data.params.a8_over_a0.toFixed(4)}`
     : "";
 
+  const selectedTable = useMemo(() => {
+    if (!data?.selected || !Number.isFinite(data.selected.me)) {
+      return null;
+    }
+    const format = (value, digits = 4) => (Number.isFinite(value) ? value.toFixed(digits) : "--");
+    return {
+      columns: ["Me", "Tbar", "Pe/P0", "Ae/A8", "Ae/A0"],
+      rows: [
+        {
+          Me: format(data.selected.me, 4),
+          Tbar: format(data.selected.tbar, 4),
+          "Pe/P0": format(data.selected.pe_over_p0, 4),
+          "Ae/A8": format(data.selected.ae_over_a8, 4),
+          "Ae/A0": format(data.selected.ae_over_a0, 4)
+        }
+      ]
+    };
+  }, [data]);
+
   return (
     <div className="analysis-plot-block">
       <div className="analysis-plot-controls">
@@ -117,8 +142,20 @@ export default function AnalysisTbarVsMe() {
             layout={{
               ...layoutBase,
               title: { text: data?.labels?.title || "Tbar vs Me", font: { color: "#f3eaff", size: 18 } },
-              xaxis: { title: { text: data?.labels?.me || "Me", standoff: 14 }, color: "#f3eaff", gridcolor: "rgba(255, 214, 153, 0.35)", griddash: "dot", showgrid: true },
-              yaxis: { title: { text: data?.labels?.tbar || "Tbar", standoff: 14 }, color: "#f3eaff", gridcolor: "rgba(255, 214, 153, 0.35)", griddash: "dot", showgrid: true }
+              xaxis: {
+                title: { text: data?.labels?.me || "Me", standoff: 14 },
+                color: "#f3eaff",
+                gridcolor: "rgba(255, 214, 153, 0.35)",
+                griddash: "dot",
+                showgrid: true
+              },
+              yaxis: {
+                title: { text: data?.labels?.tbar || "Tbar", standoff: 14 },
+                color: "#f3eaff",
+                gridcolor: "rgba(255, 214, 153, 0.35)",
+                griddash: "dot",
+                showgrid: true
+              }
             }}
             config={plotConfig}
             style={{ width: "100%", height: "420px" }}
@@ -126,18 +163,7 @@ export default function AnalysisTbarVsMe() {
           />
         </div>
       </div>
-      {data?.selected ? (
-        <div className="analysis-output-panel">
-          <h5>Selected Point</h5>
-          <div className="analysis-output-grid">
-            <div><LatexText latex={`M_e=${data.selected.me.toFixed(3)}`} /></div>
-            <div><LatexText latex={`\\mathbb{T}/(P_0A_0)=${data.selected.tbar.toFixed(3)}`} /></div>
-            <div><LatexText latex={`P_e/P_0=${data.selected.pe_over_p0.toFixed(3)}`} /></div>
-            <div><LatexText latex={`A_e/A_8=${data.selected.ae_over_a8.toFixed(3)}`} /></div>
-            <div><LatexText latex={`A_e/A_0=${data.selected.ae_over_a0.toFixed(3)}`} /></div>
-          </div>
-        </div>
-      ) : null}
+      {selectedTable ? <TableView title="Selected Point" table={selectedTable} /> : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BlockMath } from "react-katex";
 import { postJson } from "../../api/client";
 
@@ -22,39 +22,34 @@ export default function AnalysisStripModelEquations() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let isMounted = true;
-    const load = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const response = await postJson("/api/analysis/ideal/strip-model-equations", {});
-        if (isMounted) {
-          setData(response);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err.message || "Failed to load equations.");
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-    load();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const handleLoad = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await postJson("/api/analysis/ideal/strip-model-equations", {});
+      setData(response);
+    } catch (err) {
+      setError(err.message || "Failed to load equations.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const equations = Array.isArray(data?.equations) ? data.equations : [];
 
   return (
     <div className="analysis-equations">
+      <div className="analysis-plot-actions">
+        <button type="button" onClick={handleLoad} disabled={loading}>
+          {loading ? "Loading..." : "Load equations"}
+        </button>
+      </div>
       {loading ? <div className="plot-caption">Loading equations...</div> : null}
       {error ? <div className="plot-caption">{error}</div> : null}
-      {!loading && !error && equations.length === 0 ? (
+      {!loading && !error && !data ? (
+        <div className="plot-caption">Click "Load equations" to fetch the strip-model definitions.</div>
+      ) : null}
+      {!loading && !error && data && equations.length === 0 ? (
         <div className="plot-caption">No equations returned.</div>
       ) : null}
       {equations.map((item, index) => (

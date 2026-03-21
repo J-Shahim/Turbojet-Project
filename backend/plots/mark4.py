@@ -118,7 +118,12 @@ def _pe_over_p0_of_me(me, gamma, pte_over_p0):
 
 
 def operating_line_from_mk1(station_rows: List[Dict[str, Any]], inputs: Dict[str, Any]):
-    a4s = next((row.get("A") for row in station_rows if str(row.get("station")) == "4"), None)
+    a4s = next(
+        (row.get("A*") for row in station_rows if str(row.get("station")) == "4" and row.get("A*") is not None),
+        None
+    )
+    if a4s is None:
+        a4s = next((row.get("A") for row in station_rows if str(row.get("station")) == "4"), None)
     a2 = inputs.get("A2")
     a8 = inputs.get("A8")
     gamma = inputs.get("gamma")

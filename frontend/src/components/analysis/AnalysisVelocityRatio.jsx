@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import { postJson } from "../../api/client";
 import LatexText from "../LatexText";
+import TableView from "../TableView";
 import AnalysisInputs from "./AnalysisInputs";
 
 const DEFAULT_INPUTS = {
@@ -15,13 +16,13 @@ const DEFAULT_INPUTS = {
 };
 
 const INPUT_FIELDS = [
-  { key: "gamma", label: "\\gamma", latex: true, step: 0.01, min: 1.0, max: 1.67 },
-  { key: "tau_r", label: "\\tau_r", latex: true, step: 0.001, min: 1.0, max: 4.0 },
-  { key: "tau_lambda", label: "\\tau_\\lambda", latex: true, step: 0.1, min: 1.1, max: 20.0 },
-  { key: "tau_f", label: "\\tau_f", latex: true, step: 1.0, min: 1.0, max: 300.0 },
-  { key: "tau_c_min", label: "\\tau_c\\ min", latex: true, step: 0.01, min: 1.01, max: 10.0 },
-  { key: "tau_c_max", label: "\\tau_c\\ max", latex: true, step: 0.1, min: 2.0, max: 80.0 },
-  { key: "npts", label: "npts", latex: false, step: 50, min: 100, max: 2000 }
+  { key: "gamma", label: "\\gamma", latex: true, step: 0.01, min: 1.0, max: 1.67, unit: "D.L." },
+  { key: "tau_r", label: "\\tau_r", latex: true, step: 0.001, min: 1.0, max: 4.0, unit: "D.L." },
+  { key: "tau_lambda", label: "\\tau_\\lambda", latex: true, step: 0.1, min: 1.1, max: 20.0, unit: "D.L." },
+  { key: "tau_f", label: "\\tau_f", latex: true, step: 1.0, min: 1.0, max: 300.0, unit: "D.L." },
+  { key: "tau_c_min", label: "\\tau_c\\ min", latex: true, step: 0.01, min: 1.01, max: 10.0, unit: "D.L." },
+  { key: "tau_c_max", label: "\\tau_c\\ max", latex: true, step: 0.1, min: 2.0, max: 80.0, unit: "D.L." },
+  { key: "npts", label: "npts", latex: false, step: 50, min: 100, max: 2000, unit: "#" }
 ];
 
 export default function AnalysisVelocityRatio() {
@@ -30,6 +31,7 @@ export default function AnalysisVelocityRatio() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const plotContainerRef = useRef(null);
+  const autoComputeRef = useRef(false);
   const [plotWidth, setPlotWidth] = useState(0);
   const gapPx = 200;
 
@@ -51,6 +53,10 @@ export default function AnalysisVelocityRatio() {
   };
 
   useEffect(() => {
+    if (autoComputeRef.current) {
+      return;
+    }
+    autoComputeRef.current = true;
     handleCompute();
   }, []);
 
@@ -381,6 +387,38 @@ export default function AnalysisVelocityRatio() {
     }
   ];
 
+  const markerTable = useMemo(() => {
+    if (!data?.markers) {
+      return null;
+    }
+    const format = (value, digits = 4) => (Number.isFinite(value) ? value.toFixed(digits) : "--");
+    const makeRow = (label, marker) => {
+      if (!marker || !Number.isFinite(marker.tau_c)) {
+        return null;
+      }
+      return {
+        Type: label,
+        tau_c: format(marker.tau_c, 4),
+        "Ue/U0": format(marker.velocity_ratio, 4),
+        Me: format(marker.me, 4),
+        Tbar: format(marker.tbar, 4)
+      };
+    };
+    const rows = [
+      makeRow("calc max thrust", data.markers.calc),
+      makeRow("numeric max", data.markers.numeric),
+      makeRow("fuel shutoff", data.markers.fuel_off)
+    ].filter(Boolean);
+
+    if (!rows.length) {
+      return null;
+    }
+    return {
+      columns: ["Type", "tau_c", "Ue/U0", "Me", "Tbar"],
+      rows
+    };
+  }, [data]);
+
   return (
     <div className="analysis-plot-block">
       <div className="analysis-plot-controls">
@@ -477,6 +515,7 @@ export default function AnalysisVelocityRatio() {
           />
         </div>
       </div>
+      {markerTable ? <TableView title="Velocity Ratio Markers" table={markerTable} /> : null}
     </div>
   );
 }

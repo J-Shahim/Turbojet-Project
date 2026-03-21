@@ -14,6 +14,9 @@ $$
 $$
 \dot m=\frac{P_t A}{\sqrt{T_t}}\sqrt{\frac{\gamma}{R}}\,f(M)
 $$
+$$
+U = M\sqrt{\gamma R T}
+$$
 
 ---
 ## 1) Define Inputs and Constants for Area/Station Solves
@@ -37,11 +40,15 @@ T_{t4}\;\text{(given)},\quad \text{LHV}
 $$
 Geometry areas:
 $$
-A_1,\;A_{1.5},\;A_2,\;A_3,\;A_5,\;A_8,\;A_e
+A_1,\;A_{1.5},\;A_2,\;A_3,\;A_4,\;A_5,\;A_8,\;A_e
 $$
-Reference throat:
+Station 4 area (burner exit / turbine stator):
 $$
-A_4=A^*\ \text{(turbine throat, typically choked)}
+A_4\ \text{(used to compute }A_4^*\text{ in the station table)}
+$$
+Station table units (display):
+$$
+A,\ A^*\ \text{in m}^2;\ P,\ P_t\ \text{in kPa};\ T,\ T_t\ \text{in K};\ U\ \text{in m/s};\ \text{ratios and }M\ \text{are D.L.}
 $$
 Optional inputs:
 $$
@@ -51,7 +58,7 @@ Nozzle mode: fully expanded or mass-flow solved.
 
 ---
 ## 2) Implement Thermo/Flow Helpers and Compute $\tau_r$, $\tau_\lambda$
-Use isentropic relations and the mass-flow function $f(M)=A^*/A$. Set station-4 reference state with $M_4=1$ so $A_4=A^*$.
+Use isentropic relations and the mass-flow function $f(M)=A^*/A$. Station 4 uses an isobaric burner assumption with $P_4=P_3$, and $M_4$ is inferred from $P_{t4}/P_4$. The turbine throat downstream may still be choked, but $M_4$ is no longer forced to 1 at the burner exit.
 $$
 \tau(M)=1+\frac{\gamma-1}{2}M^2,\quad \pi(\tau)=\tau^{\gamma/(\gamma-1)}
 $$
@@ -65,7 +72,17 @@ $$
 \tau_\lambda=\frac{T_{t4}}{T_0}
 $$
 $$
-M_4=1\Rightarrow \tau(M_4)=1+\frac{\gamma-1}{2},\quad T_4=\frac{T_{t4}}{\tau(M_4)}
+P_4=P_3
+$$
+$$
+\pi(M_4)=\frac{P_{t4}}{P_4},\quad
+    \tau(M_4)=\pi(M_4)^{(\gamma-1)/\gamma},\quad
+M_4=\sqrt{\frac{2}{\gamma-1}\left(\tau(M_4)-1\right)}
+$$
+$$
+T_4=\frac{T_{t4}}{\tau(M_4)},\quad
+A_4^*=A_4\,f(M_4),\quad
+\frac{A_4}{A_4^*}=\frac{1}{f(M_4)}
 $$
 $$
 \frac{T}{T_t}=\frac{1}{\tau(M)},\quad \frac{P}{P_t}=\frac{1}{\pi(\tau(M))}
@@ -76,7 +93,7 @@ $$
 
 ---
 ## 3) Turbine Temperature Ratio From Nozzle Matching
-With $A_4^*$ set as the reference area (normalized to 1) and $A_8$ given, the ideal matching relation gives the turbine temperature ratio. Then $T_{t5}$ and $\pi_t$ follow directly.
+The matching relation uses a normalized reference throat $A_4^*$ (internal to the solver) together with $A_8$ to set the turbine temperature ratio. The station table uses the user-provided $A_4$ and the inferred $M_4$ to compute the reported $A_4^*$ and $A_4/A_4^*$.
 $$
 \tau_t=\frac{T_{t5}}{T_{t4}}=\left(\frac{A_4^*}{A_8}\right)^{\frac{2(\gamma-1)}{\gamma+1}}
 $$
@@ -314,7 +331,7 @@ $$
 f(M_3)=\frac{\dot m_3\,\sqrt{T_{t3}}}{P_{t3}\,A_3\,\sqrt{\gamma/R}},\quad A_3^*=A_3 f(M_3)
 $$
 $$
-A_4^*=\frac{\dot m_4\,\sqrt{T_{t4}}}{P_{t4}\,\sqrt{\gamma/R}\,f(M_4)},\quad f(M_4)=f(1)
+A_4^*=A_4 f(M_4),\quad \dot m_4=\frac{P_{t4} A_4}{\sqrt{T_{t4}}}\sqrt{\frac{\gamma}{R}}\, f(M_4)
 $$
 $$
 f(M_5)=\frac{\dot m\,\sqrt{T_{t5}}}{P_{t5}\,A_5\,\sqrt{\gamma/R}},\quad A_5^*=A_5 f(M_5)

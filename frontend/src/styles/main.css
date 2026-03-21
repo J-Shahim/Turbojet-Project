@@ -104,6 +104,7 @@ body {
   min-width: 320px;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
@@ -161,6 +162,20 @@ body {
   overflow-wrap: anywhere;
 }
 
+.input-label,
+.analysis-input-label {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.input-unit,
+.analysis-input-unit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .input-hint {
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -189,6 +204,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 .table-section {
@@ -196,6 +212,13 @@ body {
   border-radius: 20px;
   padding: 16px;
   background: rgba(0, 0, 0, 0.25);
+  min-width: 0;
+}
+
+.plot-card + .table-section,
+.plots-grid + .table-section,
+.analysis-plot-block .table-section {
+  margin-top: 16px;
 }
 
 .collapsible .table-section {
@@ -244,6 +267,19 @@ body {
   text-align: center;
 }
 
+.table-header {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.table-unit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .warnings-panel {
   border: 2px solid #ff9e9e;
   border-radius: 16px;
@@ -273,6 +309,17 @@ body {
 
 .analysis-markdown {
   line-height: 1.6;
+}
+
+.analysis-markdown a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.analysis-markdown .katex,
+.analysis-markdown .katex-display {
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .analysis-markdown h1,
@@ -328,12 +375,14 @@ body {
 
 .analysis-plot {
   margin: 8px 0 16px;
+  min-width: 0;
 }
 
 .analysis-plot-block {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .analysis-plot-controls {
@@ -341,6 +390,7 @@ body {
   border-radius: 16px;
   padding: 16px;
   background: rgba(0, 0, 0, 0.2);
+  min-width: 0;
 }
 
 .analysis-inputs h4 {
@@ -351,6 +401,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .analysis-input-field {
@@ -358,6 +409,7 @@ body {
   flex-direction: column;
   gap: 6px;
   font-size: 0.9rem;
+  min-width: 0;
 }
 
 .analysis-input-field input {
@@ -422,14 +474,16 @@ body {
 
 .tau-sweeps-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  min-width: 0;
 }
 
 .tau-sweeps-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -642,6 +696,18 @@ body {
   gap: 6px;
   font-size: 0.85rem;
   min-width: 0;
+}
+
+.strip-field-label {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.strip-unit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .strip-field input {
@@ -1113,5 +1179,20 @@ body {
 
   .strip-panel--outputs {
     grid-row: 3;
+  }
+}
+
+@media (max-width: 720px) {
+  .plots-grid,
+  .tau-sweeps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plot-frame {
+    min-height: clamp(200px, 55vw, 280px);
+  }
+
+  .plot-frame--diagnostics {
+    --plot-frame-min: 280px;
   }
 }

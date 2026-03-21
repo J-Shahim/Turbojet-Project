@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import { postJson } from "../../api/client";
-import LatexText from "../LatexText";
+import TableView from "../TableView";
 import AnalysisInputs from "./AnalysisInputs";
 
 const DEFAULT_INPUTS = {
@@ -15,13 +15,13 @@ const DEFAULT_INPUTS = {
 };
 
 const INPUT_FIELDS = [
-  { key: "gamma", label: "\\gamma", latex: true, step: 0.01, min: 1.05, max: 1.67 },
-  { key: "A4s_over_A2", label: "A_{4*}/A_2", latex: true, step: 0.001, min: 0.005, max: 0.5 },
-  { key: "A4s_over_A8", label: "A_{4*}/A_8", latex: true, step: 0.005, min: 0.01, max: 0.99 },
-  { key: "pi_c_min", label: "\\pi_c\\ min", latex: true, step: 0.01, min: 1.01, max: 10.0 },
-  { key: "pi_c_max", label: "\\pi_c\\ max", latex: true, step: 0.5, min: 2.0, max: 200.0 },
-  { key: "fM2_pick", label: "f(M_2)\\ pick", latex: true, step: 0.001, min: 0.01, max: 1.0 },
-  { key: "npts", label: "npts", latex: false, step: 50, min: 100, max: 4000 }
+  { key: "gamma", label: "\\gamma", latex: true, step: 0.01, min: 1.05, max: 1.67, unit: "D.L." },
+  { key: "A4s_over_A2", label: "A_{4*}/A_2", latex: true, step: 0.001, min: 0.005, max: 0.5, unit: "D.L." },
+  { key: "A4s_over_A8", label: "A_{4*}/A_8", latex: true, step: 0.005, min: 0.01, max: 0.99, unit: "D.L." },
+  { key: "pi_c_min", label: "\\pi_c\\ min", latex: true, step: 0.01, min: 1.01, max: 10.0, unit: "D.L." },
+  { key: "pi_c_max", label: "\\pi_c\\ max", latex: true, step: 0.5, min: 2.0, max: 200.0, unit: "D.L." },
+  { key: "fM2_pick", label: "f(M_2)\\ pick", latex: true, step: 0.001, min: 0.01, max: 1.0, unit: "D.L." },
+  { key: "npts", label: "npts", latex: false, step: 50, min: 100, max: 4000, unit: "#" }
 ];
 
 export default function AnalysisOperatingLine() {
@@ -29,6 +29,7 @@ export default function AnalysisOperatingLine() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoComputeRef = useRef(false);
 
   const handleChange = (key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -48,6 +49,10 @@ export default function AnalysisOperatingLine() {
   };
 
   useEffect(() => {
+    if (autoComputeRef.current) {
+      return;
+    }
+    autoComputeRef.current = true;
     handleCompute();
   }, []);
 
@@ -101,6 +106,35 @@ export default function AnalysisOperatingLine() {
     return traces;
   }, [data]);
 
+  const markerTable = useMemo(() => {
+    if (!data?.markers) {
+      return null;
+    }
+    const format = (value, digits = 4) => (Number.isFinite(value) ? value.toFixed(digits) : "--");
+    const rows = [];
+    if (data.markers.min && Number.isFinite(data.markers.min.f_m2)) {
+      rows.push({
+        Point: "min",
+        "f(M2)": format(data.markers.min.f_m2, 4),
+        pi_c: format(data.markers.min.pi_c, 3)
+      });
+    }
+    if (data.markers.pick && Number.isFinite(data.markers.pick.f_m2)) {
+      rows.push({
+        Point: "pick",
+        "f(M2)": format(data.markers.pick.f_m2, 4),
+        pi_c: format(data.markers.pick.pi_c, 3)
+      });
+    }
+    if (!rows.length) {
+      return null;
+    }
+    return {
+      columns: ["Point", "f(M2)", "pi_c"],
+      rows
+    };
+  }, [data]);
+
   return (
     <div className="analysis-plot-block">
       <div className="analysis-plot-controls">
@@ -129,23 +163,7 @@ export default function AnalysisOperatingLine() {
           />
         </div>
       </div>
-      {data?.markers ? (
-        <div className="analysis-output-panel">
-          <h5>Key Points</h5>
-          <div className="analysis-output-grid">
-            {data.markers.min ? (
-              <div>
-                <LatexText latex={`f(M_2)_{min}=${data.markers.min.f_m2.toFixed(4)},\\ \pi_c=${data.markers.min.pi_c.toFixed(3)}`} />
-              </div>
-            ) : null}
-            {data.markers.pick ? (
-              <div>
-                <LatexText latex={`f(M_2)_{pick}=${data.markers.pick.f_m2.toFixed(4)},\\ \pi_c=${data.markers.pick.pi_c.toFixed(3)}`} />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {markerTable ? <TableView title="Operating Line Points" table={markerTable} /> : null}
     </div>
   );
 }

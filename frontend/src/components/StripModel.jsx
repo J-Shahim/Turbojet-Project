@@ -307,30 +307,30 @@ export default function StripModel({ data, inputs, revision, onChange, onReset, 
     : "";
 
   const fieldMap = {
-    gamma: { label: "\\gamma", step: 0.01, min: 1.05, max: 1.67 },
-    t0: { label: "T_0", step: 1, min: 200, max: 350 },
-    tau_r: { label: "\\tau_r", step: 0.01, min: 0.6, max: 2.0 },
-    tau_user: { label: "\\tau_{\\lambda}/\\tau_r\\ (user)", step: 0.01, min: 1.2, max: 16.0 },
-    fuel_to_air: { label: "f", step: 0.001, min: 0.0, max: 0.08 },
-    pi_b: { label: "\\pi_b", step: 0.001, min: 0.8, max: 1.0 },
-    n_stages: { label: "N_{stages}", step: 0.1, min: 2.0, max: 20.0 },
-    alpha2a_deg: { label: "\\alpha_{2a}\\ (deg)", step: 0.5, min: -5.0, max: 30.0 },
-    beta2b_deg: { label: "\\beta_{2b}\\ (deg)", step: 0.5, min: 20.0, max: 80.0 },
-    mb_corr_min: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (min)", step: 0.01, min: 0.2, max: 1.5 },
-    mb_corr_max: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (max)", step: 0.01, min: 0.3, max: 2.0 },
-    n_speed_lines: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (lines)", step: 1, min: 3, max: 14 },
-    mb_user: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (user)", step: 0.01, min: 0.2, max: 2.0 },
-    a2_over_a4s: { label: "A_2/A_{4*}", step: 0.01, min: 2.0, max: 30.0 },
-    a4s_over_a8: { label: "A_{4*}/A_8", step: 0.01, min: 0.01, max: 0.99 },
-    f_m2_min: { label: "f(M_2)\\ (min)", step: 0.01, min: 0.05, max: 0.9 },
-    f_m2_max: { label: "f(M_2)\\ (max)", step: 0.01, min: 0.2, max: 1.0 },
-    n_f_m2: { label: "n\\ f(M_2)", step: 1, min: 50, max: 600 },
-    pi_c_operating_min: { label: "\\pi_c\\ (min)", step: 0.01, min: 1.01, max: 5.0 },
-    pi_c_operating_max: { label: "\\pi_c\\ (max)", step: 0.1, min: 2.0, max: 120.0 },
-    n_pi_operating: { label: "n\\ \\pi_c", step: 1, min: 50, max: 600 },
-    tau_min: { label: "\\tau_{\\lambda}/\\tau_r\\ (min)", step: 0.01, min: 1.2, max: 12.0 },
-    tau_max: { label: "\\tau_{\\lambda}/\\tau_r\\ (max)", step: 0.01, min: 1.3, max: 16.0 },
-    n_tau_lines: { label: "n\\ \\tau_{\\lambda}/\\tau_r", step: 1, min: 2, max: 14 }
+    gamma: { label: "\\gamma", step: 0.01, min: 1.05, max: 1.67, unit: "D.L." },
+    t0: { label: "T_0", step: 1, min: 200, max: 350, unit: "K" },
+    tau_r: { label: "\\tau_r", step: 0.01, min: 0.6, max: 2.0, unit: "D.L." },
+    tau_user: { label: "\\tau_{\\lambda}/\\tau_r\\ (user)", step: 0.01, min: 1.2, max: 16.0, unit: "D.L." },
+    fuel_to_air: { label: "f", step: 0.001, min: 0.0, max: 0.08, unit: "D.L." },
+    pi_b: { label: "\\pi_b", step: 0.001, min: 0.8, max: 1.0, unit: "D.L." },
+    n_stages: { label: "N_{stages}", step: 0.1, min: 2.0, max: 20.0, unit: "#" },
+    alpha2a_deg: { label: "\\alpha_{2a}\\ (deg)", step: 0.5, min: -5.0, max: 30.0, unit: "deg" },
+    beta2b_deg: { label: "\\beta_{2b}\\ (deg)", step: 0.5, min: 20.0, max: 80.0, unit: "deg" },
+    mb_corr_min: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (min)", step: 0.01, min: 0.2, max: 1.5, unit: "D.L." },
+    mb_corr_max: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (max)", step: 0.01, min: 0.3, max: 2.0, unit: "D.L." },
+    n_speed_lines: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (lines)", step: 1, min: 3, max: 14, unit: "#" },
+    mb_user: { label: "M_{b0}/\\sqrt{\\tau_r}\\ (user)", step: 0.01, min: 0.2, max: 2.0, unit: "D.L." },
+    a2_over_a4s: { label: "A_2/A_{4*}", step: 0.01, min: 2.0, max: 30.0, unit: "D.L." },
+    a4s_over_a8: { label: "A_{4*}/A_8", step: 0.01, min: 0.01, max: 0.99, unit: "D.L." },
+    f_m2_min: { label: "f(M_2)\\ (min)", step: 0.01, min: 0.05, max: 0.9, unit: "D.L." },
+    f_m2_max: { label: "f(M_2)\\ (max)", step: 0.01, min: 0.2, max: 1.0, unit: "D.L." },
+    n_f_m2: { label: "n\\ f(M_2)", step: 1, min: 50, max: 600, unit: "#" },
+    pi_c_operating_min: { label: "\\pi_c\\ (min)", step: 0.01, min: 1.01, max: 5.0, unit: "D.L." },
+    pi_c_operating_max: { label: "\\pi_c\\ (max)", step: 0.1, min: 2.0, max: 120.0, unit: "D.L." },
+    n_pi_operating: { label: "n\\ \\pi_c", step: 1, min: 50, max: 600, unit: "#" },
+    tau_min: { label: "\\tau_{\\lambda}/\\tau_r\\ (min)", step: 0.01, min: 1.2, max: 12.0, unit: "D.L." },
+    tau_max: { label: "\\tau_{\\lambda}/\\tau_r\\ (max)", step: 0.01, min: 1.3, max: 16.0, unit: "D.L." },
+    n_tau_lines: { label: "n\\ \\tau_{\\lambda}/\\tau_r", step: 1, min: 2, max: 14, unit: "#" }
   };
 
   const inputSections = [
@@ -545,7 +545,10 @@ export default function StripModel({ data, inputs, revision, onChange, onReset, 
                         const inputValue = Number.isFinite(value) ? value : "";
                         return (
                           <label key={key} className="strip-field">
-                            <span><LatexText latex={field.label} /></span>
+                            <span className="strip-field-label">
+                              <LatexText latex={field.label} />
+                              {field.unit ? <span className="strip-unit">({field.unit})</span> : null}
+                            </span>
                             <div className="strip-slider">
                               <input
                                 type="range"
@@ -587,7 +590,10 @@ export default function StripModel({ data, inputs, revision, onChange, onReset, 
                         const inputValue = Number.isFinite(value) ? value : "";
                         return (
                           <label key={key} className="strip-field">
-                            <span><LatexText latex={field.label} /></span>
+                            <span className="strip-field-label">
+                              <LatexText latex={field.label} />
+                              {field.unit ? <span className="strip-unit">({field.unit})</span> : null}
+                            </span>
                             <div className="strip-slider">
                               <input
                                 type="range"

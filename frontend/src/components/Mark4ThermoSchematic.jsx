@@ -263,7 +263,7 @@ export default function Mark4ThermoSchematic({ tables }) {
 
   const layout = {
     autosize: true,
-    margin: { t: 60, r: 20, l: 20, b: 40 },
+    margin: { t: 60, r: 20, l: 60, b: 40 },
     title: { text: "Turbojet Engine - Real-time Thermodynamic Analysis", font: { color: "#f3eaff", size: 16 } },
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
@@ -275,9 +275,13 @@ export default function Mark4ThermoSchematic({ tables }) {
       zeroline: false
     },
     yaxis: {
+      title: { text: "Radius (m)", font: { color: "#f3eaff", size: 14 }, standoff: 12 },
+      tickfont: { color: "#f3eaff", size: 11 },
+      color: "#f3eaff",
+      automargin: true,
       showgrid: false,
       zeroline: false,
-      showticklabels: false
+      showticklabels: true
     }
   };
 
@@ -314,11 +318,11 @@ export default function Mark4ThermoSchematic({ tables }) {
           <thead>
             <tr>
               <th>St</th>
-              <th>M</th>
-              <th>T</th>
-              <th>Tt</th>
-              <th>P</th>
-              <th>Pt</th>
+              <th>M (D.L.)</th>
+              <th>T (K)</th>
+              <th>Tt (K)</th>
+              <th>P (kPa)</th>
+              <th>Pt (kPa)</th>
             </tr>
           </thead>
           <tbody>

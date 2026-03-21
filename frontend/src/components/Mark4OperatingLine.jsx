@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import Plot from "react-plotly.js";
-import LatexText from "./LatexText";
+import TableView from "./TableView";
 
 export default function Mark4OperatingLine({ data }) {
   if (!data) {
@@ -52,37 +53,73 @@ export default function Mark4OperatingLine({ data }) {
     });
   }
 
+  const pointTable = useMemo(() => {
+    if (!series?.f_m2?.length) {
+      return null;
+    }
+    const format = (value, digits = 4) => (Number.isFinite(value) ? value.toFixed(digits) : "--");
+    const rows = [];
+    if (series.min_point?.f_m2 && series.min_point?.pi_c) {
+      rows.push({
+        Point: "min",
+        "f(M2) (D.L.)": format(series.min_point.f_m2, 4),
+        "pi_c (D.L.)": format(series.min_point.pi_c, 3)
+      });
+    }
+    if (series.pick) {
+      const pickIndex = series.f_m2.reduce((best, val, idx) => {
+        const bestVal = series.f_m2[best];
+        return Math.abs(val - series.pick) < Math.abs(bestVal - series.pick) ? idx : best;
+      }, 0);
+      rows.push({
+        Point: "pick",
+        "f(M2) (D.L.)": format(series.f_m2[pickIndex], 4),
+        "pi_c (D.L.)": format(series.pi_c[pickIndex], 3)
+      });
+    }
+    if (!rows.length) {
+      return null;
+    }
+    return {
+      columns: ["Point", "f(M2) (D.L.)", "pi_c (D.L.)"],
+      rows
+    };
+  }, [series]);
+
   return (
-    <div className="plot-card">
-      <div className="plot-frame plot-frame--performance">
-        <Plot
-          data={traces}
-          layout={{
-            autosize: true,
-            title: { text: labels.title, font: { color: "#f3eaff", size: 18 } },
-            xaxis: { title: { text: labels.x, standoff: 14, font: { color: "#f3eaff", size: 15 } }, tickfont: { color: "#f3eaff", size: 12 }, color: "#f3eaff", automargin: true, gridcolor: "rgba(255, 214, 153, 0.45)", griddash: "dot", showgrid: true },
-            yaxis: { title: { text: labels.y, standoff: 14, font: { color: "#f3eaff", size: 15 } }, tickfont: { color: "#f3eaff", size: 12 }, color: "#f3eaff", automargin: true, gridcolor: "rgba(255, 214, 153, 0.45)", griddash: "dot", showgrid: true },
-            margin: { t: 90, r: 30, l: 80, b: 80 },
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(255,255,255,0.08)",
-            font: { color: "#f3eaff", size: 13 },
-            showlegend: true,
-            legend: {
-              x: 0.02,
-              y: 0.98,
-              xanchor: "left",
-              yanchor: "top",
-              bgcolor: "rgba(0,0,0,0.35)",
-              bordercolor: "rgba(255,255,255,0.15)",
-              borderwidth: 1,
-              font: { color: "#f3eaff", size: 12 }
-            }
-          }}
-          config={plotConfig}
-          style={{ width: "100%", height: "100%" }}
-          useResizeHandler
-        />
+    <div>
+      <div className="plot-card">
+        <div className="plot-frame plot-frame--performance">
+          <Plot
+            data={traces}
+            layout={{
+              autosize: true,
+              title: { text: labels.title, font: { color: "#f3eaff", size: 18 } },
+              xaxis: { title: { text: labels.x, standoff: 14, font: { color: "#f3eaff", size: 15 } }, tickfont: { color: "#f3eaff", size: 12 }, color: "#f3eaff", automargin: true, gridcolor: "rgba(255, 214, 153, 0.45)", griddash: "dot", showgrid: true },
+              yaxis: { title: { text: labels.y, standoff: 14, font: { color: "#f3eaff", size: 15 } }, tickfont: { color: "#f3eaff", size: 12 }, color: "#f3eaff", automargin: true, gridcolor: "rgba(255, 214, 153, 0.45)", griddash: "dot", showgrid: true },
+              margin: { t: 90, r: 30, l: 80, b: 80 },
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(255,255,255,0.08)",
+              font: { color: "#f3eaff", size: 13 },
+              showlegend: true,
+              legend: {
+                x: 0.02,
+                y: 0.98,
+                xanchor: "left",
+                yanchor: "top",
+                bgcolor: "rgba(0,0,0,0.35)",
+                bordercolor: "rgba(255,255,255,0.15)",
+                borderwidth: 1,
+                font: { color: "#f3eaff", size: 12 }
+              }
+            }}
+            config={plotConfig}
+            style={{ width: "100%", height: "100%" }}
+            useResizeHandler
+          />
+        </div>
       </div>
+      {pointTable ? <TableView title="Operating Line Points" table={pointTable} /> : null}
     </div>
   );
 }

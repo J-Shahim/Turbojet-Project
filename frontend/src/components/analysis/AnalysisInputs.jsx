@@ -25,6 +25,7 @@ export default function AnalysisInputs({ title, fields, values, onChange }) {
             <label key={field.key} className="analysis-input-field">
               <span className="analysis-input-label">
                 {field.latex ? <LatexText latex={field.label} /> : field.label}
+                {field.unit ? <span className="analysis-input-unit">({field.unit})</span> : null}
               </span>
               <input
                 type="number"
