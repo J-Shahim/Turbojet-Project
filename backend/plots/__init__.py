@@ -9,6 +9,7 @@ from .analysis import (
     analysis_tbar_vs_me,
     analysis_velocity_ratio,
 )
+from .fuel import fuel_xi_map
 
 __all__ = [
     "diagnostics_from_mk1",
@@ -22,4 +23,5 @@ __all__ = [
     "analysis_operating_line",
     "analysis_strip_model",
     "analysis_strip_model_equations",
+    "fuel_xi_map",
 ]

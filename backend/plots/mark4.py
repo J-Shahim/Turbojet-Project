@@ -4,9 +4,9 @@ from typing import Any, Dict, List
 import math
 import numpy as np
 
-from matching import f_m2_operating_from_pi_c
+from ..matching import f_m2_operating_from_pi_c
 
-from thermo import enthalpy_ideal, entropy_ideal, velocity_from_mach
+from ..thermo import enthalpy_ideal, entropy_ideal, velocity_from_mach
 
 
 def _station_x(label: str) -> float:

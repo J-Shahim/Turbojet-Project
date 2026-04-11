@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import LatexText from "./LatexText";
 
 const LATEX_HEADERS = {
@@ -24,6 +25,14 @@ const LATEX_HEADERS = {
   "isp_max": "(I_{sp}g/a_0)_{max}",
   "f(M)": "f(M)",
   "f(M2)": "f(M_2)",
+  "Species": "\\text{Species}_i",
+  "hbar": "\\bar{h}_i",
+  "cpbar": "\\bar{c}_p",
+  "sbar": "\\bar{s}^\\circ(T)",
+  "gfo": "\\bar{g}_f^\\circ(T)",
+  "X": "X_i",
+  "Y": "Y_i",
+  "P_i": "P_i",
   "mdot": "\\dot m",
   "tau": "\\tau",
   "tau_c": "\\tau_c",
@@ -52,6 +61,16 @@ const STATION_UNITS = {
 };
 
 function renderHeader(label) {
+  if (typeof label === "string") {
+    const speciesMatch = label.match(/^Species_\d+$/);
+    if (speciesMatch) {
+      return <LatexText latex={String.raw`\text{Species}_i`} />;
+    }
+    const molMatch = label.match(/^Mol_\d+\s*\(([^)]+)\)$/);
+    if (molMatch) {
+      return `Mol (${molMatch[1]})`;
+    }
+  }
   const latex = LATEX_HEADERS[label];
   if (latex) {
     return <LatexText latex={latex} />;
@@ -114,10 +133,55 @@ function renderCell(value) {
   return String(value ?? "");
 }
 
-export default function TableView({ title, table }) {
+function toNumericValue(value) {
+  if (value === null || value === undefined) {
+    return Number.NaN;
+  }
+  if (typeof value === "number") {
+    return value;
+  }
+  const raw = String(value).replace(/,/g, "").trim();
+  if (!raw || raw === "--") {
+    return Number.NaN;
+  }
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : Number.NaN;
+}
+
+export default function TableView({ title, table, enableSort = false }) {
   if (!table) {
     return null;
   }
+
+  const [sortKey, setSortKey] = useState("");
+  const [sortDir, setSortDir] = useState("desc");
+
+  const rows = useMemo(() => {
+    if (!sortKey) {
+      return table.rows;
+    }
+    const sorted = [...table.rows];
+    sorted.sort((a, b) => {
+      const aVal = a?.[sortKey];
+      const bVal = b?.[sortKey];
+      const aNum = toNumericValue(aVal);
+      const bNum = toNumericValue(bVal);
+      const aIsNum = Number.isFinite(aNum);
+      const bIsNum = Number.isFinite(bNum);
+
+      if (aIsNum && bIsNum) {
+        return sortDir === "asc" ? aNum - bNum : bNum - aNum;
+      }
+      if (aIsNum !== bIsNum) {
+        return aIsNum ? -1 : 1;
+      }
+      const aText = String(aVal ?? "");
+      const bText = String(bVal ?? "");
+      const cmp = aText.localeCompare(bText);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [sortDir, sortKey, table.rows]);
 
   const sectionClass = title === "Stations"
     ? "table-section table-section--stations"
@@ -130,7 +194,29 @@ export default function TableView({ title, table }) {
 
   return (
     <section className={sectionClass}>
-      <h3>{title}</h3>
+      <div className="table-title-row">
+        <h3>{title}</h3>
+        {enableSort ? (
+          <div className="table-controls">
+            <label className="table-control">
+              <span>Sort by</span>
+              <select value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
+                <option value="">None</option>
+                {table.columns.map((col) => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+              </select>
+            </label>
+            <label className="table-control">
+              <span>Order</span>
+              <select value={sortDir} onChange={(event) => setSortDir(event.target.value)}>
+                <option value="desc">High to low</option>
+                <option value="asc">Low to high</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+      </div>
       <div className={wrapperClass}>
         <table>
           <thead>
@@ -143,7 +229,7 @@ export default function TableView({ title, table }) {
             </tr>
           </thead>
           <tbody>
-            {table.rows.map((row, idx) => (
+            {rows.map((row, idx) => (
               <tr key={idx}>
                 {table.columns.map((col) => (
                   <td key={col}>{renderCell(row[col])}</td>

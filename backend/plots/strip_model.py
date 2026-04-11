@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from matching import f_m2_operating_from_pi_c
+from ..matching import f_m2_operating_from_pi_c
 
 
 def _clean_value(value: Any) -> float | None:

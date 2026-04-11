@@ -16,3 +16,12 @@ export async function postJson(path, body) {
 
   return response.json();
 }
+
+export async function getJson(path) {
+  const response = await fetch(`${API_BASE}${path}`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Request failed");
+  }
+  return response.json();
+}

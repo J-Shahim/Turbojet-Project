@@ -1,0 +1,177 @@
+[
+  {
+    "fuel_id": "CH4",
+    "name": "Methane",
+    "formula": "CH4",
+    "mw_kg_per_kmol": 16.043,
+    "lhv_kJ_per_kg": 50016.0
+  },
+  {
+    "fuel_id": "C2H2",
+    "name": "Acetylene",
+    "formula": "C2H2",
+    "mw_kg_per_kmol": 26.038,
+    "lhv_kJ_per_kg": 48225.0
+  },
+  {
+    "fuel_id": "C2H4",
+    "name": "Ethene",
+    "formula": "C2H4",
+    "mw_kg_per_kmol": 28.054,
+    "lhv_kJ_per_kg": 47161.0
+  },
+  {
+    "fuel_id": "C2H6",
+    "name": "Ethane",
+    "formula": "C2H6",
+    "mw_kg_per_kmol": 30.069,
+    "lhv_kJ_per_kg": 47489.0
+  },
+  {
+    "fuel_id": "C3H6",
+    "name": "Propene",
+    "formula": "C3H6",
+    "mw_kg_per_kmol": 42.08,
+    "lhv_kJ_per_kg": 45784.0
+  },
+  {
+    "fuel_id": "C3H8",
+    "name": "Propane",
+    "formula": "C3H8",
+    "mw_kg_per_kmol": 44.096,
+    "lhv_kJ_per_kg": 46357.0
+  },
+  {
+    "fuel_id": "C4H8",
+    "name": "1-Butene",
+    "formula": "C4H8",
+    "mw_kg_per_kmol": 56.107,
+    "lhv_kJ_per_kg": 45319.0
+  },
+  {
+    "fuel_id": "C4H10",
+    "name": "n-Butane",
+    "formula": "C4H10",
+    "mw_kg_per_kmol": 58.123,
+    "lhv_kJ_per_kg": 45742.0
+  },
+  {
+    "fuel_id": "C5H10",
+    "name": "1-Pentene",
+    "formula": "C5H10",
+    "mw_kg_per_kmol": 70.134,
+    "lhv_kJ_per_kg": 45000.0
+  },
+  {
+    "fuel_id": "C5H12",
+    "name": "n-Pentane",
+    "formula": "C5H12",
+    "mw_kg_per_kmol": 72.15,
+    "lhv_kJ_per_kg": 45355.0
+  },
+  {
+    "fuel_id": "C6H6",
+    "name": "Benzene",
+    "formula": "C6H6",
+    "mw_kg_per_kmol": 78.113,
+    "lhv_kJ_per_kg": 40579.0
+  },
+  {
+    "fuel_id": "C6H12",
+    "name": "1-Hexene",
+    "formula": "C6H12",
+    "mw_kg_per_kmol": 84.161,
+    "lhv_kJ_per_kg": 44803.0
+  },
+  {
+    "fuel_id": "C6H14",
+    "name": "n-Hexane",
+    "formula": "C6H14",
+    "mw_kg_per_kmol": 86.177,
+    "lhv_kJ_per_kg": 45105.0
+  },
+  {
+    "fuel_id": "C7H14",
+    "name": "1-Heptene",
+    "formula": "C7H14",
+    "mw_kg_per_kmol": 98.188,
+    "lhv_kJ_per_kg": 44665.0
+  },
+  {
+    "fuel_id": "C7H16",
+    "name": "n-Heptane",
+    "formula": "C7H16",
+    "mw_kg_per_kmol": 100.203,
+    "lhv_kJ_per_kg": 44926.0
+  },
+  {
+    "fuel_id": "C8H16",
+    "name": "1-Octene",
+    "formula": "C8H16",
+    "mw_kg_per_kmol": 112.214,
+    "lhv_kJ_per_kg": 44560.0
+  },
+  {
+    "fuel_id": "C8H18",
+    "name": "n-Octane",
+    "formula": "C8H18",
+    "mw_kg_per_kmol": 114.23,
+    "lhv_kJ_per_kg": 44791.0
+  },
+  {
+    "fuel_id": "C9H18",
+    "name": "1-Nonene",
+    "formula": "C9H18",
+    "mw_kg_per_kmol": 126.241,
+    "lhv_kJ_per_kg": 44478.0
+  },
+  {
+    "fuel_id": "C9H20",
+    "name": "n-Nonane",
+    "formula": "C9H20",
+    "mw_kg_per_kmol": 128.257,
+    "lhv_kJ_per_kg": 44686.0
+  },
+  {
+    "fuel_id": "C10H20",
+    "name": "1-Decene",
+    "formula": "C10H20",
+    "mw_kg_per_kmol": 140.268,
+    "lhv_kJ_per_kg": 44413.0
+  },
+  {
+    "fuel_id": "C10H22",
+    "name": "n-Decane",
+    "formula": "C10H22",
+    "mw_kg_per_kmol": 142.284,
+    "lhv_kJ_per_kg": 44602.0
+  },
+  {
+    "fuel_id": "C11H22",
+    "name": "1-Undecene",
+    "formula": "C11H22",
+    "mw_kg_per_kmol": 154.295,
+    "lhv_kJ_per_kg": 44360.0
+  },
+  {
+    "fuel_id": "C11H24",
+    "name": "n-Undecane",
+    "formula": "C11H24",
+    "mw_kg_per_kmol": 156.311,
+    "lhv_kJ_per_kg": 44532.0
+  },
+  {
+    "fuel_id": "C12H24",
+    "name": "1-Dodecene",
+    "formula": "C12H24",
+    "mw_kg_per_kmol": 168.322,
+    "lhv_kJ_per_kg": 44316.0
+  },
+  {
+    "fuel_id": "C12H26",
+    "name": "n-Dodecane",
+    "formula": "C12H26",
+    "mw_kg_per_kmol": 170.337,
+    "lhv_kJ_per_kg": 256.0
+  }
+]

@@ -154,6 +154,7 @@ The backend is not deployed to GitHub Pages. Host it separately (Render/Fly.io/V
 
 Jarel Shahim
 Mechanical Engineer - Propulsion Focus
+
 Engineering portfolio: https://j-shahim.github.io/portfolio-webpage/
 
 ## Summary

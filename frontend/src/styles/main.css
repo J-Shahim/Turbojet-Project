@@ -215,6 +215,42 @@ body {
   min-width: 0;
 }
 
+.table-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.table-title-row h3 {
+  margin: 0;
+}
+
+.table-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 0;
+}
+
+.table-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.table-control select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text-primary);
+}
+
 .plot-card + .table-section,
 .plots-grid + .table-section,
 .analysis-plot-block .table-section {
@@ -336,6 +372,18 @@ body {
   margin-bottom: 10px;
 }
 
+.analysis-markdown blockquote {
+  margin: 18px 0;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2) inset;
+  overflow-wrap: anywhere;
+  position: relative;
+  z-index: 1;
+}
+
 .analysis-markdown hr {
   border: none;
   border-top: 1px solid rgba(255, 255, 255, 0.25);
@@ -442,11 +490,70 @@ body {
   cursor: pointer;
 }
 
+.analysis-input-field select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: rgba(8, 10, 30, 0.85);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08) inset;
+}
+
+.analysis-input-field select:focus {
+  outline: none;
+  border-color: #ff9f1c;
+  box-shadow: 0 0 0 3px rgba(255, 159, 28, 0.3);
+  font-size: 2rem;
+}
+
 .analysis-output-panel {
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 16px;
   padding: 12px 16px;
   background: rgba(0, 0, 0, 0.2);
+}
+
+.analysis-warning {
+  border: 2px solid #ff9f1c;
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: rgba(255, 159, 28, 0.12);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.analysis-output-panel--derivation {
+  background: rgba(8, 10, 30, 0.55);
+  border-color: #ff9f1c;
+  box-shadow: 0 0 0 2px rgba(255, 159, 28, 0.25) inset;
+}
+
+.analysis-output-panel--derivation .analysis-markdown {
+  font-size: 1rem;
+  text-align: left;
+}
+
+.analysis-output-panel--derivation .analysis-markdown strong {
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.analysis-output-panel--derivation .katex-display {
+  margin: 0.75rem 0;
+  text-align: center;
+  max-width: 100%;
+}
+
+.analysis-output-panel--derivation .katex-display > .katex {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  display: inline-block;
 }
 
 .analysis-output-panel h5 {
@@ -457,6 +564,25 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
+}
+
+.analysis-output-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.fuel-analysis-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.fuel-analysis-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
 .section-header {
@@ -478,6 +604,12 @@ body {
   gap: 20px;
 }
 
+.xi-plot-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .tau-sweeps-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -494,6 +626,10 @@ body {
 
 @media (max-width: 900px) {
   .tau-sweeps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fuel-analysis-grid {
     grid-template-columns: 1fr;
   }
 }

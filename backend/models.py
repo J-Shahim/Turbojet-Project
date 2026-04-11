@@ -95,3 +95,31 @@ class AnalysisStripModelInputs(BaseModel):
     pi_c_operating_min: float = Field(1.01, description="Operating pi_c min")
     pi_c_operating_max: float = Field(40.0, description="Operating pi_c max")
     n_pi_operating: int = Field(300, description="Operating pi_c samples")
+
+
+class FuelAnalysisInputs(BaseModel):
+    fuel_id: str = Field("CH4", description="Fuel identifier")
+    f_over_a: float = Field(0.02, description="Fuel-air ratio")
+    mode: str = Field("ideal", description="Combustion mode: ideal or dissociation")
+    t_k: float = Field(2000.0, description="Combustion temperature (K)")
+    t_react_k: float = Field(298.15, description="Reactant enthalpy temperature (K)")
+    p_pa: float = Field(101325.0, description="Combustion pressure (Pa)")
+    air_model: str = Field("dry_air", description="Air model: dry_air or oxygen")
+    fuel_phase: str = Field("vapor", description="Fuel phase: vapor or liquid")
+    hv_basis: str = Field("lhv", description="Heating value basis: lhv or hhv")
+    hv_ref_t_k: float = Field(298.15, description="Heating value reference temperature (K)")
+
+
+class FuelXiMapInputs(BaseModel):
+    fuel_id: str = Field("CH4", description="Fuel identifier")
+    species: list[str] = Field(default_factory=list, description="Species names to compute Xi map")
+    air_model: str = Field("dry_air", description="Air model: dry_air or oxygen")
+    p_pa: float = Field(101325.0, description="Combustion pressure (Pa)")
+    t_k: float = Field(2000.0, description="Combustion temperature (K)")
+    phi_min: float = Field(0.0001, description="Equivalence ratio sweep min")
+    phi_max: float = Field(2.0, description="Equivalence ratio sweep max")
+    phi_step: float = Field(0.05, description="Equivalence ratio sweep step")
+    min_mol: float = Field(1.0e-6, description="Minimum mol threshold for products")
+    include_ideal: bool = Field(True, description="Include ideal products map")
+    include_dissociation: bool = Field(True, description="Include dissociation products map")
+    max_points: int = Field(4000, description="Max phi points per sweep")

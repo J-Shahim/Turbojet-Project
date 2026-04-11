@@ -11,6 +11,7 @@ import StripModel from "./components/StripModel";
 import AnalysisView from "./components/analysis/AnalysisView";
 import NotebookMarkdown from "./components/analysis/NotebookMarkdown";
 import LatexText from "./components/LatexText";
+import FuelAnalysis from "./components/FuelAnalysis";
 import { postJson } from "./api/client";
 import inputsTablesNotes from "./analysis/inputsTablesNotes.md?raw";
 import perfDiagnosticsNotes from "./analysis/perfDiagnosticsNotes.md?raw";
@@ -44,9 +45,8 @@ const DEFAULT_INPUTS = {
 };
 
 const MAIN_TABS = [
-  { key: "purpose", label: "Purpose" },
-  { key: "analysis", label: "Analysis" },
-  { key: "simulations", label: "Simulations" }
+  { key: "turbojet", label: "Turbojet Analysis" },
+  { key: "fuel", label: "Fuel Analysis" }
 ];
 
 const SIM_TABS = [
@@ -56,7 +56,8 @@ const SIM_TABS = [
 ];
 
 export default function App() {
-  const [activeMainTab, setActiveMainTab] = useState("analysis");
+  const [activeMainTab, setActiveMainTab] = useState("turbojet");
+  const [turbojetTab, setTurbojetTab] = useState("purpose");
   const [activeSimTab, setActiveSimTab] = useState("tables");
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
   const [tables, setTables] = useState(null);
@@ -154,150 +155,135 @@ export default function App() {
 
       <Tabs tabs={MAIN_TABS} activeTab={activeMainTab} onTabChange={setActiveMainTab} />
 
-      {activeMainTab === "purpose" && (
+      {activeMainTab === "turbojet" && (
         <section className="analysis-tab">
-          <div className="analysis-content">
-            <NotebookMarkdown content={purposeNotes} />
-          </div>
-        </section>
-      )}
-
-      {activeMainTab === "analysis" && <AnalysisView />}
-
-      {activeMainTab === "simulations" && (
-        <section className="simulations-tab">
           <Tabs
-            tabs={SIM_TABS}
-            activeTab={activeSimTab}
-            onTabChange={setActiveSimTab}
+            tabs={[
+              { key: "purpose", label: "Purpose" },
+              { key: "analysis", label: "Analysis" },
+              { key: "simulations", label: "Simulations" }
+            ]}
+            activeTab={turbojetTab}
+            onTabChange={setTurbojetTab}
             className="tabs-sub"
           />
 
-          <div className="action-bar">
-            <button onClick={handleCompute} disabled={loading} type="button">
-              {loading ? "Running..." : "Compute"}
-            </button>
-            {error ? <span className="error">{error}</span> : null}
-          </div>
-
-          {activeSimTab === "tables" && (
-            <section className="tab-panel">
-              <div className="section-header">
-                <h3>Inputs + Tables</h3>
-                <p>
-                  This panel runs the MK1 solver and summarizes the station-by-station results.
-                  Set ambient conditions, gas properties, losses, and geometry on the left, then
-                  click Compute to refresh the tables on the right. Use the warnings list to catch
-                  non-physical inputs and check the Status table for solver flags.
-                </p>
-              </div>
-              <div className="content-grid">
-                <InputsPanel inputs={inputs} onChange={handleInputChange} computedAe={computedAe} />
-                <div className="tables-panel">
-                  {warnings.length > 0 && (
-                    <div className="warnings-panel">
-                      <h3>Warnings</h3>
-                      <ul>
-                        {warnings.map((warning, idx) => (
-                          <li key={idx}>{warning}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <TableView title="Stations" table={tables?.station_table} />
-                  <TableView title="Ratios" table={tables?.ratio_table} />
-                  <details className="collapsible">
-                    <summary>Status (click to expand)</summary>
-                    <TableView title="Status" table={tables?.status_table} />
-                  </details>
-                </div>
-              </div>
-              <NotebookMarkdown content={inputsTablesNotes} />
-            </section>
+          {turbojetTab === "purpose" && (
+            <div className="analysis-content">
+              <NotebookMarkdown content={purposeNotes} />
+            </div>
           )}
 
-          {activeSimTab === "mark4" && (
-            <section className="tab-panel">
-              <div className="section-header">
-                <h3>Performance and Diagnostics Plots</h3>
-                <p>
-                  These plots visualize MK1 station results. Review the
-                  thermodynamic schematic to confirm geometry and station metadata. Inspect
-                  diagnostics for efficiency and pressure trends, the operating line for map
-                  placement, and thrust vs exit Mach to interpret nozzle response.
-                </p>
-              </div>
-              <div className="section-header">
-                <h3>Realtime Thermodynamic Schematic</h3>
-                <p>Geometry outline with station metadata sourced from MK1 tables.</p>
-              </div>
-              <Mark4ThermoSchematic tables={tables} />
-              <div className="section-header">
-                <h3>Diagnostics</h3>
-                <p>Derived from MK1 station tables and thermodynamic post-processing.</p>
-              </div>
-              <details className="collapsible" open>
-                <summary>Show/Hide Diagnostics Plots</summary>
-                <Mark4Diagnostics data={diagnostics} />
-              </details>
-              <div className="section-header">
-                <h3>Operating Line</h3>
-                <p>Operating line derived from MK1 geometry ratios.</p>
-              </div>
-              <div className="plots-grid">
-                <Mark4OperatingLine data={operatingLine} />
-              </div>
-              <div className="section-header">
-                <h3>Thrust vs Exit Mach</h3>
-                <p>
-                  Uses MK1 total temperature/pressure at exit for{" "}
-                  <LatexText latex={"\\mathbb{T}(M_e)"} />.
-                </p>
-              </div>
-              <div className="plots-grid">
-                <Mark4TbarVsMe data={tbarVsMe} />
-              </div>
-              <div className="section-header">
-                <h3>Ideal Analysis Sweeps</h3>
-                <p>
-                  These sweeps show how dimensionless thrust and specific impulse respond to
-                  variations in <LatexText latex={"\\tau_c"} /> and <LatexText latex={"\\tau_r"} />
-                  for the current MK1 reference state. Use them to identify peak thrust regions
-                  and see how flight Mach shifts the ideal cycle performance. Re-run Compute after
-                  changing inputs to refresh the curves.
-                </p>
-              </div>
-              <IdealAnalysis data={idealAnalysis} />
-              <NotebookMarkdown content={perfDiagnosticsNotes} />
-            </section>
-          )}
+          {turbojetTab === "analysis" && <AnalysisView />}
 
-          {activeSimTab === "strip" && (
-            <section className="tab-panel">
-              <div className="section-header">
-                <h3>Compressor Strip Model</h3>
-                <p>
-                  The strip-model map blends MK1 operating conditions with compressor
-                  speed lines and matching lines. Use the sliders to explore how corrected
-                  speed, geometry ratios, and <LatexText latex={"\\tau_\\lambda/\\tau_r"} />
-                  shift the operating point.
-                  The plot highlights feasibility by comparing the intersection to the
-                  operating line, so stay below the envelope for viable points.
-                </p>
-              </div>
-              <StripModel
-                data={stripModel}
-                inputs={stripInputs}
-                revision={stripRevision}
-                onChange={handleStripInputChange}
-                onReset={handleStripReset}
+          {turbojetTab === "simulations" && (
+            <section className="simulations-tab">
+              <Tabs
+                tabs={SIM_TABS}
+                activeTab={activeSimTab}
+                onTabChange={setActiveSimTab}
+                className="tabs-sub"
               />
-              <NotebookMarkdown content={stripModelNotes} />
+
+              <div className="action-bar">
+                <button onClick={handleCompute} disabled={loading} type="button">
+                  {loading ? "Running..." : "Compute"}
+                </button>
+                {error ? <span className="error">{error}</span> : null}
+              </div>
+
+              {activeSimTab === "tables" && (
+                <section className="tab-panel">
+                  <div className="section-header">
+                    <h3>Inputs + Tables</h3>
+                    <p>
+                      This panel runs the MK1 solver and summarizes the station-by-station results.
+                      Set ambient conditions, gas properties, losses, and geometry on the left, then
+                      click Compute to refresh the tables on the right. Use the warnings list to catch
+                      non-physical inputs and check the Status table for solver flags.
+                    </p>
+                  </div>
+                  <div className="content-grid">
+                    <InputsPanel inputs={inputs} onChange={handleInputChange} computedAe={computedAe} />
+                    <div className="tables-panel">
+                      {warnings.length > 0 && (
+                        <div className="warnings-panel">
+                          <h3>Warnings</h3>
+                          <ul>
+                            {warnings.map((warning, idx) => (
+                              <li key={idx}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <TableView title="Stations" table={tables?.station_table} />
+                      <TableView title="Ratios" table={tables?.ratio_table} />
+                      <details className="collapsible">
+                        <summary>Status (click to expand)</summary>
+                        <TableView title="Status" table={tables?.status_table} />
+                      </details>
+                    </div>
+                  </div>
+                  <NotebookMarkdown content={inputsTablesNotes} />
+                </section>
+              )}
+
+              {activeSimTab === "mark4" && (
+                <section className="tab-panel">
+                  <div className="section-header">
+                    <h3>Performance and Diagnostics Plots</h3>
+                    <p>
+                      These plots visualize MK1 station results. Review the
+                      thermodynamic schematic to confirm geometry and station metadata. Inspect
+                      diagnostics for efficiency and pressure trends, the operating line for map
+                      placement, and thrust vs exit Mach to interpret nozzle response.
+                    </p>
+                  </div>
+                  <div className="section-header">
+                    <h3>Realtime Thermodynamic Schematic</h3>
+                    <p>Geometry outline with station metadata sourced from MK1 tables.</p>
+                  </div>
+                  <Mark4ThermoSchematic tables={tables} />
+                  <div className="section-header">
+                    <h3>Diagnostics</h3>
+                  </div>
+                  <Mark4Diagnostics data={diagnostics} />
+                  <div className="section-header">
+                    <h3>Operating Line</h3>
+                  </div>
+                  <Mark4OperatingLine data={operatingLine} />
+                  <div className="section-header">
+                    <h3>Thrust and Exit Mach</h3>
+                  </div>
+                  <Mark4TbarVsMe data={tbarVsMe} />
+                  <NotebookMarkdown content={perfDiagnosticsNotes} />
+                </section>
+              )}
+
+              {activeSimTab === "strip" && (
+                <section className="tab-panel">
+                  <div className="section-header">
+                    <h3>Compressor Strip Model</h3>
+                    <p>
+                      This plot uses an idealized strip model to visualize compressor map behavior.
+                      Adjust inlet conditions to explore the shift in operating lines and stage loading.
+                    </p>
+                  </div>
+                  <StripModel
+                    data={stripModel}
+                    revision={stripRevision}
+                    onInputChange={handleStripInputChange}
+                    onReset={handleStripReset}
+                  />
+                  <NotebookMarkdown content={stripModelNotes} />
+                </section>
+              )}
             </section>
           )}
         </section>
       )}
 
+      {activeMainTab === "fuel" && <FuelAnalysis simF={inputs.f_fuel} />}
     </div>
   );
 }
