@@ -70,7 +70,19 @@ export default function App() {
   const [stripRevision, setStripRevision] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [elapsedMs, setElapsedMs] = useState(0);
   const autoComputeRef = useRef(false);
+  const computeStartRef = useRef(0);
+
+  const formatElapsed = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  };
 
   const handleInputChange = (key, value) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -119,6 +131,18 @@ export default function App() {
     autoComputeRef.current = true;
     handleCompute();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      return undefined;
+    }
+    computeStartRef.current = Date.now();
+    setElapsedMs(0);
+    const intervalId = setInterval(() => {
+      setElapsedMs(Date.now() - computeStartRef.current);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [loading]);
 
   const handleStripInputChange = (key, value) => {
     setStripInputs((prev) => ({ ...(prev || {}), [key]: value }));
@@ -189,6 +213,11 @@ export default function App() {
                 <button onClick={handleCompute} disabled={loading} type="button">
                   {loading ? "Running..." : "Compute"}
                 </button>
+                {loading && elapsedMs >= 2000 ? (
+                  <span className="compute-timer">
+                    Please wait, computation time is {formatElapsed(elapsedMs)}.
+                  </span>
+                ) : null}
                 {error ? <span className="error">{error}</span> : null}
               </div>
 

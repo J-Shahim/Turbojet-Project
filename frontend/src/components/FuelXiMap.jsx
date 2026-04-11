@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import LatexText from "./LatexText";
 import { postJson } from "../api/client";
@@ -24,6 +24,19 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
   const [mapData, setMapData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [showTimer, setShowTimer] = useState(false);
+  const computeStartRef = useRef(0);
+
+  const formatElapsed = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  };
 
   const speciesOptions = useMemo(() => {
     if (!Array.isArray(speciesList)) {
@@ -71,6 +84,26 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!loading) {
+      setShowTimer(false);
+      return undefined;
+    }
+    computeStartRef.current = Date.now();
+    setElapsedMs(0);
+    setShowTimer(false);
+    const showTimerId = setTimeout(() => {
+      setShowTimer(true);
+    }, 2000);
+    const intervalId = setInterval(() => {
+      setElapsedMs(Date.now() - computeStartRef.current);
+    }, 1000);
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(showTimerId);
+    };
+  }, [loading]);
 
   const plotConfig = {
     responsive: true,
@@ -295,6 +328,11 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
             <button type="button" onClick={handleCompute} disabled={loading}>
               {loading ? "Computing..." : "Compute Xi Map"}
             </button>
+            {loading && showTimer ? (
+              <span className="compute-timer">
+                Please wait, computation time is {formatElapsed(elapsedMs)}.
+              </span>
+            ) : null}
             {error ? <span className="error">{error}</span> : null}
           </div>
         </div>

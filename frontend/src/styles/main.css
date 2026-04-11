@@ -90,6 +90,11 @@ body {
   color: #ffb3b3;
 }
 
+.compute-timer {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(320px, 420px) 1fr;

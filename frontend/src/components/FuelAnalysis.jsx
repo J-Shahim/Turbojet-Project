@@ -576,8 +576,20 @@ export default function FuelAnalysis({ simF }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [showExcluded, setShowExcluded] = useState(false);
   const autoComputeRef = useRef(false);
+  const computeStartRef = useRef(0);
+
+  const formatElapsed = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -632,6 +644,18 @@ export default function FuelAnalysis({ simF }) {
     autoComputeRef.current = true;
     handleCompute();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      return undefined;
+    }
+    computeStartRef.current = Date.now();
+    setElapsedMs(0);
+    const intervalId = setInterval(() => {
+      setElapsedMs(Date.now() - computeStartRef.current);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [loading]);
 
   const derivationMarkdown = useMemo(() => {
     if (data?.derivation_markdown) {
@@ -907,6 +931,11 @@ export default function FuelAnalysis({ simF }) {
             <button type="button" onClick={handleCompute} disabled={loading}>
               {loading ? "Running..." : "Compute"}
             </button>
+            {loading && elapsedMs >= 2000 ? (
+              <span className="compute-timer">
+                Please wait, computation time is {formatElapsed(elapsedMs)}.
+              </span>
+            ) : null}
             {error ? <span className="error">{error}</span> : null}
           </div>
         </div>
