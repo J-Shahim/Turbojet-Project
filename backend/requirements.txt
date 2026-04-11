@@ -2,3 +2,4 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 numpy==2.1.1
 pandas==2.2.2
+cantera==3.0.0
