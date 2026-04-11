@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, Tuple
 import math
 
-from .models import MK1Inputs
+try:
+    from .models import MK1Inputs
+except ImportError:
+    from models import MK1Inputs
 
 
 def _mk1_inputs_to_dict(inputs: MK1Inputs) -> Dict[str, Any]:
@@ -39,7 +42,10 @@ def _df_to_table(df):
 
 
 def compute_mk1(inputs: MK1Inputs) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    from .Turbojet_full_stage_calculation_MK1_simplified import compute_state
+    try:
+        from .Turbojet_full_stage_calculation_MK1_simplified import compute_state
+    except ImportError:
+        from Turbojet_full_stage_calculation_MK1_simplified import compute_state
 
     data = _mk1_inputs_to_dict(inputs)
     state = compute_state(data)

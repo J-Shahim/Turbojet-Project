@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict
 import math
 
-from ..models import FuelXiMapInputs
+try:
+    from ..models import FuelXiMapInputs
+except ImportError:
+    from models import FuelXiMapInputs
 from combustion_solver import (
     adiabatic_flame_temperature_equilibrium,
     adiabatic_flame_temperature_ideal,
