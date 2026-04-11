@@ -7,37 +7,63 @@ from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import (
-    MK1Inputs,
-    AnalysisOperatingLineInputs,
-    AnalysisStripModelInputs,
-    AnalysisTauSweepInputs,
-    AnalysisTbarVsMeInputs,
-    AnalysisVelocityRatioInputs,
-    FuelAnalysisInputs,
-    FuelXiMapInputs,
-)
+try:
+    from .models import (
+        MK1Inputs,
+        AnalysisOperatingLineInputs,
+        AnalysisStripModelInputs,
+        AnalysisTauSweepInputs,
+        AnalysisTbarVsMeInputs,
+        AnalysisVelocityRatioInputs,
+        FuelAnalysisInputs,
+        FuelXiMapInputs,
+    )
+    from .mk1_adapter import compute_mk1
+    from .plots import (
+        analysis_operating_line,
+        analysis_strip_model,
+        analysis_strip_model_equations,
+        analysis_tau_sweeps,
+        analysis_tbar_vs_me,
+        analysis_velocity_ratio,
+        diagnostics_from_mk1,
+        fuel_xi_map,
+        ideal_tau_sweeps_from_mk1,
+        operating_line_from_mk1,
+        strip_model_from_mk1,
+        tbar_vs_me_from_mk1,
+    )
+except ImportError:
+    from models import (
+        MK1Inputs,
+        AnalysisOperatingLineInputs,
+        AnalysisStripModelInputs,
+        AnalysisTauSweepInputs,
+        AnalysisTbarVsMeInputs,
+        AnalysisVelocityRatioInputs,
+        FuelAnalysisInputs,
+        FuelXiMapInputs,
+    )
+    from mk1_adapter import compute_mk1
+    from plots import (
+        analysis_operating_line,
+        analysis_strip_model,
+        analysis_strip_model_equations,
+        analysis_tau_sweeps,
+        analysis_tbar_vs_me,
+        analysis_velocity_ratio,
+        diagnostics_from_mk1,
+        fuel_xi_map,
+        ideal_tau_sweeps_from_mk1,
+        operating_line_from_mk1,
+        strip_model_from_mk1,
+        tbar_vs_me_from_mk1,
+    )
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROTOTYPE_ROOT = REPO_ROOT / "prototype"
 if str(PROTOTYPE_ROOT) not in sys.path:
     sys.path.insert(0, str(PROTOTYPE_ROOT))
 
-
-from .mk1_adapter import compute_mk1
-from .plots import (
-    analysis_operating_line,
-    analysis_strip_model,
-    analysis_strip_model_equations,
-    analysis_tau_sweeps,
-    analysis_tbar_vs_me,
-    analysis_velocity_ratio,
-    diagnostics_from_mk1,
-    fuel_xi_map,
-    ideal_tau_sweeps_from_mk1,
-    operating_line_from_mk1,
-    strip_model_from_mk1,
-    tbar_vs_me_from_mk1,
-)
 
 
 from combustion_solver import (
