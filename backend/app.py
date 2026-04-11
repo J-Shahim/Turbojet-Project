@@ -7,6 +7,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PROTOTYPE_ROOT = REPO_ROOT / "prototype"
+if str(PROTOTYPE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROTOTYPE_ROOT))
+
 try:
     from .models import (
         MK1Inputs,
@@ -59,10 +64,6 @@ except ImportError:
         strip_model_from_mk1,
         tbar_vs_me_from_mk1,
     )
-REPO_ROOT = Path(__file__).resolve().parents[1]
-PROTOTYPE_ROOT = REPO_ROOT / "prototype"
-if str(PROTOTYPE_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROTOTYPE_ROOT))
 
 
 
