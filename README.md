@@ -1,98 +1,118 @@
-# Turbojet Parametric Cycle Simulation and Compressible Flow Analysis Tool
+# Turbojet Parametric Cycle Simulation and Compressible Flow + Fuel Analysis Tool
 
-This project is a full-stage turbojet parametric cycle simulation and compressible flow analysis tool developed using a Python (FastAPI) backend and a React/Vite frontend. The solver is based on Cantwell's turbojet analysis and Brayton cycle methodology and is intended for preliminary propulsion design and engine performance trade studies.
+This project is a full-stage turbojet parametric cycle simulation and compressible flow analysis tool with a standalone fuel-air combustion analysis module. It uses a Python FastAPI backend and a React + Vite frontend. The turbojet solver follows Cantwell-style non-dimensional cycle analysis and Brayton cycle methodology for preliminary propulsion design and trade studies.
 
-The model couples the full engine system, including the inlet, compressor, combustor, turbine, and nozzle, and computes thermodynamic and flow properties across standard engine stations using compressible flow relations and choked nozzle flow.
+The project keeps the math, solver, and plots synchronized so every input change can be traced to a specific equation and output.
 
-The tool performs non-dimensional turbojet cycle analysis, allowing engine performance comparisons and trade studies independent of engine size.
+## Capabilities
 
-The governing equations and thermodynamic relations used in this model are documented and written using LaTeX.
+### Turbojet analysis (MK1 solver)
 
-## Model capabilities
+- Station-by-station turbojet solution with inlet, compressor, combustor, turbine, and nozzle
+- Non-dimensional thrust T/(P0 A0) and specific impulse (Isp g)/a0
+- Exit Mach number Me and velocity ratio Ue/U0
+- tau_c and tau_r sweeps for ideal analysis trends
+- Operating line and compressor strip-model map visualization
+- Station property tables and choking warnings
+- Thermodynamic schematic and diagnostic plots
 
-The solver computes and analyzes:
+### Fuel-air combustion analysis (standalone)
 
-- Dimensionless thrust T/(P0 A0)
-- Dimensionless specific impulse (Isp g)/a0
-- Exit Mach number Me
-- Exit-to-freestream velocity ratio Ue/U0
-- Compressor temperature ratio tau_c
-- Ram temperature ratio tau_r
-- Engine station properties (Mach number, total pressure, total temperature, velocity)
-- Choked nozzle flow and nozzle expansion behavior
-- Parametric cycle sweeps for compressor ratio and flight conditions
-- Compressor operating line
-- Simplified compressor map (strip model with speed lines and matching lines)
-- Thermodynamic cycle visualization (T-s and h-s diagrams)
+- Ideal products and dissociation products (Cantera)
+- Equivalence ratio (phi), AFR, heating value, and regime detection
+- Species composition tables with element, mass, and mole balance checks
+- Adiabatic flame temperature sweeps and species Xi(phi) maps
+- Mechanism selection with surrogate flags when a fuel is not present
 
-This non-dimensional formulation is commonly used in preliminary propulsion analysis and conceptual engine design.
+Note: The fuel analysis module is not yet coupled to the turbojet solver. It is intended as the thermochemical backbone for a future coupled combustor model.
 
-## Compressible flow and cycle analysis
+## UI overview
 
-The model uses standard gas dynamics and Brayton cycle relations, including:
+Main tabs:
 
-- Isentropic flow relations
-- Total-to-static property relations
-- Area-Mach number relations
-- Choked flow relations
-- Brayton cycle temperature and pressure relations
-- Engine station analysis (stations 0-9)
+- Turbojet Analysis
+- Fuel Analysis
 
-Future development will incorporate Rayleigh flow (combustion), normal and oblique shock relations, and non-ideal component losses.
+Turbojet Analysis sub-tabs:
 
-## Engine stations modeled
+- Purpose (assumptions and scope)
+- Analysis (embedded derivations + plots)
+- Simulations
+	- Inputs + Tables
+	- Performance + Diagnostics
+	- Compressor Strip Model
 
-Station | Description
---- | ---
-0 | Freestream
-2 | Compressor inlet
-3 | Compressor exit
-4 | Combustor exit
-5 | Turbine exit
-e | Nozzle exit
+Fuel Analysis:
 
-The solver tracks Mach number, total pressure, total temperature, and velocity across these stations.
+- Inputs for fuel, air model, phase, heating value basis, temperature, and pressure
+- Ideal vs dissociation modes
+- Reactants and products tables
+- Species map Xi plots and computed derivations
 
-## Example outputs
+## Analysis documentation (embedded in the UI)
 
-The solver generates parametric plots and engine diagnostics including:
+- Ideal turbojet derivations: frontend/src/analysis/idealTurbojetAnalysis.md
+- MK1 full stage calculation: frontend/src/analysis/turbojetFullStageCalculationMk1.md
+- Inputs + tables limitations: frontend/src/analysis/inputsTablesNotes.md
+- Performance diagnostics notes: frontend/src/analysis/perfDiagnosticsNotes.md
+- Strip model limitations: frontend/src/analysis/stripModelNotes.md
+- Fuel analysis purpose: frontend/src/analysis/fuelPurposeNotes.md
+- Fuel derivation (symbolic): frontend/src/analysis/fuelAnalysisDerivation.md
+- Fuel derivation (computed): frontend/src/analysis/fuelAnalysisDerivationComputed.md
+- Fuel mechanism map: frontend/src/analysis/fuelAnalysisMechanisms.md
 
-- Dimensionless thrust vs compressor temperature ratio
-- Specific impulse vs compressor temperature ratio
-- Thrust vs flight temperature ratio
-- Exit Mach number vs compressor ratio
-- Exit velocity ratio vs compressor ratio
-- Thrust vs exit Mach number
-- Compressor operating line
-- Compressor map (strip model)
-- Mach number vs engine station
-- Total pressure ratio vs engine station
-- Total temperature ratio vs engine station
-- Velocity vs engine station
-- T-s diagram
-- h-s diagram
+## Backend API surface
 
-(Add images of these plots in a /docs/images folder and link them here.)
+Core solver:
 
-## Planned future development
+- POST /api/mk1/solve
 
-- Non-ideal component efficiencies and pressure losses
-- Normal and oblique shock modeling (inlet and nozzle)
-- Supersonic and subsonic inlet capture area logic
-- Pipelined combustion analysis and fuel-air ratio modeling
-- Fuel optimization strategies
-- Converging-diverging nozzle and off-design performance
-- Exit plume expansion and shock diamond simulation
-- Emissions-conscious combustion and plume analysis
+Plots from MK1:
+
+- POST /api/plots/mark4/diagnostics
+- POST /api/plots/mark4/operating-line
+- POST /api/plots/mark4/tbar-vs-me
+- POST /api/plots/ideal/tau-sweeps
+- POST /api/plots/strip-model/map
+
+Ideal analysis plots:
+
+- POST /api/analysis/ideal/tau-sweeps
+- POST /api/analysis/ideal/velocity-ratio
+- POST /api/analysis/ideal/tbar-vs-me
+- POST /api/analysis/ideal/operating-line
+- POST /api/analysis/ideal/strip-model
+- POST /api/analysis/ideal/strip-model-equations
+
+Fuel analysis:
+
+- GET /api/fuel/list
+- POST /api/fuel/analysis
+- POST /api/fuel/analysis/xi-map
+
+## Fuel data pipeline
+
+Fuel metadata is loaded from prototype/fuel_data.json. If it is missing, the fuel API endpoints will return an error.
+
+Generator script:
+
+- prototype/build_fuel_data.py
+
+Note: The build script references a local CSV path. Update the path inside prototype/build_fuel_data.py before running it on your machine.
+
+## Optional prototype CLI
+
+The prototype folder contains a standalone CLI for fuel analysis and plots:
+
+- prototype/README.md
+
+Dissociation mode requires Cantera.
 
 ## Project architecture
 
-- Backend: Python, FastAPI
-- Frontend: React + Vite
-- Deployment:
-	- Frontend hosted on GitHub Pages
-	- Backend hosted on Render
-- Documentation: LaTeX (equations and thermodynamic relations)
+- Backend: Python, FastAPI, NumPy, Pandas, Cantera
+- Frontend: React, Vite, Plotly, KaTeX, React Markdown
+- Documentation: LaTeX-driven markdown notebooks rendered in the UI
 
 ## Requirements
 
@@ -138,9 +158,9 @@ The dev server runs at http://localhost:5173/.
 
 This repo includes a GitHub Actions workflow that builds the frontend and deploys it to GitHub Pages.
 
-- The Vite `base` path is set for the repo name `Turbojet-Project` in `frontend/vite.config.js`.
+- The Vite base path is set for the repo name Turbojet-Project in frontend/vite.config.js.
 - If you rename the GitHub repo, update that base path to match.
-- In GitHub, set **Settings -> Pages -> Build and deployment** to **GitHub Actions**.
+- In GitHub, set Settings -> Pages -> Build and deployment to GitHub Actions.
 
 ## Backend deployment
 
@@ -150,13 +170,21 @@ The backend is not deployed to GitHub Pages. Host it separately (Render/Fly.io/V
 
 - Frontend (GitHub Pages): https://j-shahim.github.io/Turbojet-Project/
 
+## Attribution (analysis equations)
+
+The ideal turbojet analysis notebook adapts equations from the AA283 course reader by Brian J. Cantwell under CC BY-NC 4.0. See the attribution block in frontend/src/analysis/idealTurbojetAnalysis.md.
+
+## Roadmap highlights
+
+- Component efficiencies, pressure losses, and polytropic models
+- Shock and inlet modeling (oblique and normal shocks, start/unstart logic)
+- Combustor energy balance using fuel analysis outputs
+- Coupled fuel dissociation for turbine and nozzle properties
+- Off-design maps and full matching solver
+
 ## Author
 
 Jarel Shahim
 Mechanical Engineer - Propulsion Focus
 
 Engineering portfolio: https://j-shahim.github.io/portfolio-webpage/
-
-## Summary
-
-This project combines thermodynamics, compressible flow, and propulsion cycle analysis with modern web deployment to create an interactive turbojet performance and analysis tool. The long-term goal is to expand the solver to include non-ideal effects, combustion modeling, shock modeling, and exhaust plume analysis to move toward a more complete propulsion system simulation.
