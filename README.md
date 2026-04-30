@@ -182,6 +182,12 @@ The ideal turbojet analysis notebook adapts equations from the AA283 course read
 - Coupled fuel dissociation for turbine and nozzle properties
 - Off-design maps and full matching solver
 
+## Reader note
+
+This project is a living build: features, math, and documentation evolve as the research matures. It is not a production-grade or flagship simulation tool, and the results shown here are for exploration and learning rather than authoritative truth. Please validate any conclusions independently before using them in real engineering decisions.
+
+The goal is to provide an interactive, approachable way to explore layered symbolic math, computation, and research ideas in context.
+
 ## Author
 
 Jarel Shahim

@@ -11,6 +11,7 @@ try:
         analysis_velocity_ratio,
     )
     from .fuel import fuel_xi_map
+    from .fuel_dissociation import fuel_dissociation_sweep, fuel_dissociation_single
 except ImportError:
     from plots.mark4 import diagnostics_from_mk1, operating_line_from_mk1, tbar_vs_me_from_mk1
     from plots.ideal import ideal_tau_sweeps_from_mk1
@@ -24,6 +25,7 @@ except ImportError:
         analysis_velocity_ratio,
     )
     from plots.fuel import fuel_xi_map
+    from plots.fuel_dissociation import fuel_dissociation_sweep, fuel_dissociation_single
 
 __all__ = [
     "diagnostics_from_mk1",
@@ -38,4 +40,6 @@ __all__ = [
     "analysis_strip_model",
     "analysis_strip_model_equations",
     "fuel_xi_map",
+    "fuel_dissociation_sweep",
+    "fuel_dissociation_single",
 ]

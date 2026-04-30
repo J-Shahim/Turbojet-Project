@@ -4,15 +4,13 @@
 
 This document derives the governing relations used in the fuel-air combustion solver. It includes:
 
-- stoichiometric combustion chemistry
-- lean and rich product models
-- fuel-air ratio and equivalence ratio definitions
-- first-law derivation for adiabatic flame temperature
-- second-law and entropy relations
-- Gibbs free energy and equilibrium constant formulation
-- heating value derivation
-- water-gas shift equilibrium relation
-- equilibrium/dissociation interpretation
+- fuel and air definitions, symbols, and mixture bookkeeping
+- stoichiometric oxygen/air requirements, fuel-air ratio, and equivalence ratio
+- Ideal (no dissociation) lean and rich product models
+- first-law energy balance and adiabatic flame temperature formulation
+- enthalpy, entropy, and Gibbs relations for reacting mixtures
+- equilibrium constants, water-gas shift, and equilibrium (dissociation) interpretation
+- solver outputs (tables and xi-maps) and how to read them
 
 The formulation is intended for use in a thermodynamic combustion solver or propulsion-cycle model.
 
@@ -51,20 +49,34 @@ $$
 O_2 + 3.76N_2
 $$
 
+
 ---
 
 ## 2. Symbol Definitions
 
+**Mixture and stoichiometry**
+
 $$
 a \equiv \text{stoichiometric moles of } O_2 \text{ per mole of fuel}
 $$
+
 $$
 \phi \equiv \text{equivalence ratio}
 $$
 
 $$
+f \equiv \frac{\dot m_f}{\dot m_a} \quad \text{(fuel-air mass ratio)}
+$$
+
+$$
+f_{st} \equiv \text{stoichiometric } f, \qquad AFR \equiv \frac{1}{f}, \qquad AFR_{st} \equiv \frac{1}{f_{st}}
+$$
+
+$$
 r_{air} \equiv N_2/O_2 \text{ (molar ratio in air)}
 $$
+
+**Amounts and composition**
 
 $$
 MW_i \equiv \text{molecular weight of species } i
@@ -83,15 +95,15 @@ $$
 $$
 
 $$
-\nu_{ij} \equiv \text{element matrix coefficient of element } j \text{ in species } i
+a_{ij} \equiv \text{number of atoms of element } j \text{ in species } i
 $$
 
 $$
-n_i \equiv \text{moles of species } i
+n_i \equiv \text{species moles on the reaction basis (typically per mole of fuel)}
 $$
 
 $$
-\dot{n}_i \equiv \text{molar flow rate of species } i
+\dot{n}_i \equiv \text{species molar flow rate (rate form)}
 $$
 
 $$
@@ -105,6 +117,8 @@ $$
 $$
 Y_i \equiv \text{mass fraction of species } i
 $$
+
+**Thermodynamic properties**
 
 $$
 \bar{h}_i \equiv \text{molar enthalpy of species } i
@@ -127,7 +141,7 @@ $$
 $$
 
 $$
-\dot{S}_{gen} \equiv \text{entropy generation rate}
+\dot{S}_{gen} \equiv \text{entropy generation rate (rate form)}
 $$
 
 $$
@@ -136,6 +150,14 @@ $$
 
 $$
 \bar{g}_i \equiv \text{molar Gibbs free energy of species } i
+$$
+
+$$
+\bar{g}_i^\circ(T) \equiv \text{standard-state molar Gibbs function of species } i
+$$
+
+$$
+\bar{g}_{f,i}^\circ(T) \equiv \text{standard-state molar Gibbs free energy of formation of species } i
 $$
 
 $$
@@ -159,8 +181,15 @@ $$
 $$
 
 $$
-\bar{R}_u \equiv \text{universal gas constant}
+R_u \equiv \text{universal gas constant}
 $$
+
+Rate-to-basis convention used in this document:
+
+- dotted quantities belong to the general steady-flow control-volume balances
+- non-dotted quantities are normalized per reaction basis (typically per mole of fuel)
+
+**Energy rates**
 
 $$
 \dot{Q} \equiv \text{heat transfer rate}
@@ -170,16 +199,22 @@ $$
 \dot{W} \equiv \text{work rate}
 $$
 
+**Pressure and equilibrium**
+
 $$
 P \equiv \text{mixture pressure}
 $$
 
 $$
-P_i \equiv \text{partial pressure of species } i
+P_j \equiv \text{partial pressure of reactant species } j
 $$
 
 $$
-P_i = X_i P \qquad \text{(ideal gas)}
+P_i \equiv \text{partial pressure of product species } i
+$$
+
+$$
+P_j = X_j P,\qquad P_i = X_i P \qquad \text{(ideal gas)}
 $$
 
 $$
@@ -194,8 +229,10 @@ $$
 P^\circ \equiv \text{reference pressure}
 $$
 
+**Temperatures**
+
 $$
-T_{ref} \equiv \text{reference temperature}
+T_{ref} \equiv 298.15\ \mathrm{K}\ \text{(reference temperature)}
 $$
 
 $$
@@ -205,6 +242,53 @@ $$
 $$
 T_{ad} \equiv \text{adiabatic flame temperature}
 $$
+
+$$
+T_{\mathrm{prod}} \equiv \text{imposed products temperature (Fixed-}T\text{ evaluation)}
+$$
+
+$$
+T_{\mathrm{prod,desired}} \equiv \text{user input target temperature for Adiabatic solve}
+$$
+
+---
+
+## 11. Percent Dissociation Diagnostics
+
+Percent dissociation quantifies how much a key product species is reduced relative to the **ideal (no dissociation)** reference at the same $(\phi, P, T)$ state.
+
+For $CO_2$ and $H_2O$ the metric is defined as
+
+$$
+\%\,\text{dissociation of } CO_2 = \left(\frac{n_{CO_2,\,\mathrm{ideal}} - n_{CO_2,\,\mathrm{eq}}}{n_{CO_2,\,\mathrm{ideal}}}\right)\times 100
+$$
+
+$$
+\%\,\text{dissociation of } H_2O = \left(\frac{n_{H_2O,\,\mathrm{ideal}} - n_{H_2O,\,\mathrm{eq}}}{n_{H_2O,\,\mathrm{ideal}}}\right)\times 100
+$$
+
+where
+
+- $n_{\mathrm{ideal}}$ comes from the ideal (complete-combustion) products model.
+- $n_{\mathrm{eq}}$ comes from the equilibrium (dissociation) model.
+
+**Fixed-T mode**
+
+- Ideal and equilibrium are evaluated at the same imposed $T_{\mathrm{prod}}$, $P$, and $\phi$.
+
+**Adiabatic mode**
+
+- The comparison basis is explicitly labeled in the UI. The default comparison uses a common adiabatic temperature (either the equilibrium or ideal $T_{ad}$), and the metric is only formed when both models are evaluated at the same temperature.
+
+If $n_{\mathrm{ideal}} = 0$ for a species, percent dissociation is undefined and reported as not applicable.
+
+### Expected trends (qualitative)
+
+- Higher temperature increases dissociation.
+- Higher pressure suppresses dissociation for many reactions.
+- $\phi$ affects dissociation through both stoichiometry and flame temperature.
+
+**Heating value**
 
 $$
 HV \equiv \text{heating value of the fuel}
@@ -218,6 +302,8 @@ $$
 HV_{molar} \equiv \text{molar heating value}\ [\mathrm{kJ/kmol}]
 $$
 
+**Other symbols**
+
 $$
 V_i \equiv \text{velocity of stream } i
 $$
@@ -230,17 +316,25 @@ $$
 z_i \equiv \text{elevation of stream } i
 $$
 
-$$
-\bar{g}_i^\circ(T) \equiv \text{standard-state molar Gibbs function of species } i
-$$
-
-$$
-\bar{g}_{f,i}^\circ(T) \equiv \text{standard-state molar Gibbs free energy of formation of species } i
-$$
 
 ---
 
-## 3. Stoichiometric Oxygen Requirement
+## 3. How to Read the Tables
+
+1. Amount column lists species moles: $n_i$ for products, $n_j$ for reactants.
+2. Molar property columns report per-kmol values (e.g., $\bar h_i$, $\bar s_i$, $\bar g_i$ for products; $\bar h_j$, $\bar s_j$, $\bar g_j$ for reactants).
+3. Total columns are weighted sums: $H_{\mathrm{prod}}=\sum_i n_i\bar h_i$, $H_{\mathrm{react}}=\sum_{j \in R} n_j\bar h_j$ (similarly for $S$ and $G$).
+4. Mixture molar entropy uses mole fractions: $\bar s_{mix}=\sum_i X_i\bar s_i$ for products or $\sum_j X_j\bar s_j$ for reactants.
+5. Formation terms represent chemical energy; sensible terms represent thermal energy; totals are their sum.
+6. $S^\circ$ is standard-state entropy; $S$ includes the ideal-gas pressure correction and mixing contribution.
+7. $G^\circ$ is standard-state Gibbs; it is used for equilibrium interpretation, not energy balance.
+8. Fixed-T evaluation computes properties at $T_{\mathrm{prod}}$ without enforcing $\Delta H=0$.
+9. Adiabatic solve finds $T_{ad}$ so $\Delta H\approx 0$ and reports $\Delta T$ relative to $T_{\mathrm{prod,desired}}$.
+
+
+---
+
+## 4. Stoichiometric Oxygen Requirement
 
 For complete combustion, carbon forms $CO_2$ and hydrogen forms $H_2O$.
 
@@ -292,7 +386,7 @@ This is the stoichiometric oxygen requirement per mole of fuel.
 
 ---
 
-## 4. Stoichiometric Air Requirement
+## 5. Stoichiometric Air Requirement
 
 Using the air model
 
@@ -326,7 +420,7 @@ $$
 
 ---
 
-## 5. Stoichiometric Fuel-Air Ratio and AFR
+## 6. Stoichiometric Fuel-Air Ratio and AFR
 
 The stoichiometric fuel-air ratio is
 
@@ -344,7 +438,7 @@ These define the reference mixture condition for the combustion model.
 
 ---
 
-## 6. Equivalence Ratio
+## 7. Equivalence Ratio
 
 The equivalence ratio is defined as
 
@@ -378,7 +472,21 @@ $$
 
 ---
 
-## 7. Stoichiometric Combustion Equation
+## 8. Mixture Input Basis
+
+The user may specify mixture strength by either $f$ or $\phi$. The solver converts between them using the stoichiometric basis:
+
+$$
+\phi = \frac{f}{f_{st}}, \qquad f = \phi f_{st}
+$$
+
+$$
+AFR = \frac{1}{f}, \qquad AFR_{st} = \frac{1}{f_{st}}
+$$
+
+---
+
+## 9. Stoichiometric Combustion Equation
 
 At stoichiometric conditions, $\phi = 1$, so the complete ideal combustion equation is
 
@@ -398,7 +506,7 @@ This is the no-dissociation complete-combustion reaction.
 
 ---
 
-## 8. Lean Product Model ($\phi \le 1$)
+## 10. Lean Product Model ($\phi \le 1$)
 
 For lean combustion, excess oxygen remains after complete oxidation of the fuel.
 
@@ -436,7 +544,7 @@ Thus, in the lean ideal model:
 
 ---
 
-## 9. Rich Product Model ($\phi > 1$)
+## 11. Rich Product Model ($\phi > 1$)
 
 For rich combustion, oxygen is insufficient for complete oxidation. In the simplified rich model, products are taken as:
 
@@ -507,7 +615,7 @@ If oxygen is insufficient to fully oxidize all carbon after water formation and 
 
 ---
 
-## 10. Reference Total Moles
+## 12. Reference Total Moles
 
 The reference total moles are defined as
 
@@ -531,89 +639,126 @@ This is used to compute mole fractions and to scale product coefficients.
 
 ---
 
-## 11. Mole Fractions and Mass Fractions
+## 13. Mole Fractions and Mass Fractions
 
-The mole fraction of species $i$ is
-
-$$
-X_i = \frac{n_i}{\sum_k n_k}
-$$
-
-The mass fraction of species $i$ is
+The mole fraction of species $j$ is
 
 $$
-Y_i = \frac{n_iMW_i}{\sum_k n_kMW_k}
+X_j = \frac{n_j}{\sum_k n_k}
+$$
+
+The mass fraction of species $j$ is
+
+$$
+Y_j = \frac{n_jMW_j}{\sum_k n_kMW_k}
 $$
 
 The partial pressure is related to mole fraction by
 
 $$
-P_i = X_i P
+P_j = X_j P
 $$
 
 These are required for thermodynamic property evaluation and equilibrium calculations.
 
----
-
-## 12. First Law of Thermodynamics for Steady Combustion
-
-For a steady-flow reacting control volume, the first law is
-
-$$
-\dot{Q} - \dot{W}
-+ \sum_{in}\dot{n}_j\left(\bar{h}_j + \frac{V_j^2}{2} + gz_j\right)
-=
-\sum_{out}\dot{n}_i\left(\bar{h}_i + \frac{V_i^2}{2} + gz_i\right)
-$$
-
-For an ideal combustor derivation, assume:
-
-- steady operation
-- negligible shaft work: $\dot{W} \approx 0$
-- negligible kinetic and potential energy changes
-- adiabatic flame calculation: $\dot{Q}=0$
-
-Then the first law reduces to
-
-$$
-\sum_{reactants} n_j \bar{h}_j(T_0)
-=
-\sum_{products} n_i \bar{h}_i(T_{ad})
-$$
-
-where:
-
-- $T_0$ is the reactant inlet temperature
-- $T_{ad}$ is the adiabatic flame temperature
-
-For the standard derivation, take
-
-$$
-T_0 = 298\,K
-$$
-
-so
-
-$$
-\sum_{j \in R} n_j \bar{h}_j(298)
-=
-\sum_{i \in P} n_i \bar{h}_i(T_{ad})
-$$
-
-This is the governing first-law equation for adiabatic combustion.
+With mixture bookkeeping established, we can now apply conservation of energy to connect composition and temperature in the solver.
 
 ---
 
-## 13. Species Enthalpy Formulation
+## 14. First Law of Thermodynamics for Steady Combustion
+
+Start from the general control-volume energy balance:
+
+$$
+\frac{dE_{cv}}{dt}
+=
+\dot{Q}-\dot{W}
++
+\sum_{in}\dot{m}\left(h+\frac{V^2}{2}+gz\right)
+-
+\sum_{out}\dot{m}\left(h+\frac{V^2}{2}+gz\right)
+$$
+
+Assumptions used in this app:
+
+1. steady state: $\frac{dE_{cv}}{dt}=0$
+2. negligible shaft work: $\dot{W}\approx 0$
+3. adiabatic combustion: $\dot{Q}\approx 0$
+4. negligible kinetic-energy change: $\Delta(V^2/2)\approx 0$
+5. negligible potential-energy change: $\Delta(gz)\approx 0$
+
+Definitions used by the solver:
+
+$$
+\dot{Q} = 0 \qquad \text{(adiabatic)}
+$$
+
+$$
+\Delta H = H_{\mathrm{prod}}(T_{\mathrm{prod}}) - H_{\mathrm{react}} \qquad \text{(Fixed-}T\text{ evaluation)}
+$$
+
+$$
+H_{\mathrm{react}} = H_{\mathrm{prod}}(T_{ad}) \qquad \text{(Adiabatic solve)}
+$$
+
+Reduced form:
+
+$$
+\sum_{in}\dot{m}h=\sum_{out}\dot{m}h
+$$
+
+Molar rate form:
+
+$$
+\sum_{j \in R}\dot{n}_j\,\bar{h}_j(T_j)=\sum_{i \in P}\dot{n}_i\,\bar{h}_i(T)
+$$
+
+### Conversion from rate form to reaction-basis form
+
+The solver and tables use a per-mole-of-fuel (reaction-basis) formulation. Dividing all rate quantities by a reference fuel molar flow rate $\dot{n}_{f,\mathrm{ref}}$ gives
+
+$$
+H=\sum_i n_i\bar{h}_i\quad\text{with}\quad n_i\equiv \frac{\dot{n}_i}{\dot{n}_{f,\mathrm{ref}}}
+$$
+
+Species-summed form used by the solver:
+
+$$
+H_{\mathrm{react}}=\sum_{j \in R} n_j\,\bar{h}_j(T_j),\qquad H_{\mathrm{prod}}=\sum_{i \in P} n_i\,\bar{h}_i(T)
+$$
+
+In Adiabatic solve, the solver enforces
+
+$$
+H_{\mathrm{react}}=H_{\mathrm{prod}}(T_{ad})
+$$
+
+$$
+\boxed{H_{\mathrm{react}} = H_{\mathrm{prod}} \quad \text{(adiabatic combustion)}}
+$$
+
+This is the governing energy conservation equation used by the solver.
+
+In Fixed-T evaluation, the equality is not enforced; instead
+
+$$
+\Delta H_{\mathrm{desired}}=H_{\mathrm{prod}}(T_{\mathrm{prod}})-H_{\mathrm{react}}
+$$
+
+To evaluate $H_{\mathrm{react}}$ and $H_{\mathrm{prod}}$ consistently, we next define species enthalpy in terms of formation and sensible components.
+
+---
+
+## 15. Species Enthalpy Formulation
 
 The molar enthalpy of species $i$ is written as
 
 $$
 \bar{h}_i(T)
 =
-\bar{h}_i^\circ(298)
+\bar{h}_i(T_{ref})
 +
-\int_{298}^{T}\bar{c}_{p,i}^\circ(T)\,dT
+\int_{T_{ref}}^{T}\bar{c}_{p,i}(T)\,dT
 $$
 
 Using formation and sensible components,
@@ -621,7 +766,7 @@ Using formation and sensible components,
 $$
 \bar{h}_i(T)
 =
-\bar{h}_{f,i}^\circ
+\Delta \bar{h}_{f,i}^\circ(T_{ref})
 +
 \bar{h}_{s,i}(T)
 $$
@@ -631,7 +776,15 @@ where the sensible enthalpy is
 $$
 \bar{h}_{s,i}(T)
 =
-\int_{T_{ref}}^{T}\bar{c}_{p,i}^\circ(T)\,dT
+\bar{h}_i(T)-\bar{h}_i(T_{ref})
+\;=\;
+\int_{T_{ref}}^{T}\bar{c}_{p,i}(T)\,dT
+$$
+
+with
+
+$$
+\bar{h}_{s,i}(T_{ref})=0
 $$
 
 Thus each species enthalpy is made of:
@@ -639,61 +792,105 @@ Thus each species enthalpy is made of:
 - chemical formation enthalpy
 - temperature-dependent sensible enthalpy
 
-In practical implementations, NASA polynomial fits or a thermodynamic library such as Cantera provide $\bar{c}_{p,i}^\circ(T)$, $\bar{h}_i^\circ(T)$, and $\bar{s}_i^\circ(T)$.
+Formation terms represent chemical energy, while sensible terms represent thermal energy added through temperature change.
+
+In this implementation, $\bar{c}_{p,i}(T)$ is obtained from temperature-dependent NASA polynomial fits (via Cantera), and the integral is evaluated through the thermodynamic property functions
+
+$$
+\bar{h}_i(T)-\bar{h}_i(T_{ref})
+$$
+
+which internally represent the full integration of $c_p(T)$ over the temperature range. This is not a constant-$c_p$ approximation.
+
+NOTE: No constant-$c_p$ approximation is used in the combustion solver. All enthalpy and entropy values are computed using temperature-dependent thermodynamic data across the full $T_{ref} \rightarrow T$ range.
+
+With enthalpy defined, we can express the adiabatic flame temperature as the temperature that satisfies the first-law balance.
 
 ---
 
-## 14. Adiabatic Flame Temperature Derivation
+## 16. Adiabatic Flame Temperature Derivation
 
 Substitute the enthalpy relation into the first-law equation:
 
 $$
 \sum_{j \in R} n_j
 \left[
-\bar{h}_j^\circ(298)
+\bar{h}_j^\circ(T_{ref})
 +
-\int_{298}^{T_0}\bar{c}_{p,j}^\circ(T)\,dT
+\int_{T_{ref}}^{T_0}\bar{c}_{p,j}^\circ(T)\,dT
 \right]
 =
 \sum_{i \in P} n_i
 \left[
-\bar{h}_i^\circ(298)
+\bar{h}_i^\circ(T_{ref})
 +
-\int_{298}^{T_{ad}}\bar{c}_{p,i}^\circ(T)\,dT
+\int_{T_{ref}}^{T_{ad}}\bar{c}_{p,i}^\circ(T)\,dT
 \right]
 $$
 
-If the reactants enter at $298\,K$, then the reactant sensible term vanishes:
+If the reactants enter at $T_{ref}=298.15\,\mathrm{K}$, then the reactant sensible term vanishes:
 
 $$
-\sum_{j \in R} n_j \bar{h}_j^\circ(298)
+\sum_{j \in R} n_j \bar{h}_j^\circ(T_{ref})
 =
 \sum_{i \in P} n_i
 \left[
-\bar{h}_i^\circ(298)
+\bar{h}_i^\circ(T_{ref})
 +
-\int_{298}^{T_{ad}}\bar{c}_{p,i}^\circ(T)\,dT
+\int_{T_{ref}}^{T_{ad}}\bar{c}_{p,i}^\circ(T)\,dT
 \right]
 $$
 
 Rearranging,
 
 $$
-\sum_{j \in R} n_j \bar{h}_j^\circ(298)
+\sum_{j \in R} n_j \bar{h}_j^\circ(T_{ref})
 -
-\sum_{i \in P} n_i \bar{h}_i^\circ(298)
+\sum_{i \in P} n_i \bar{h}_i^\circ(T_{ref})
 =
 \sum_{i \in P} n_i
-\int_{298}^{T_{ad}}\bar{c}_{p,i}^\circ(T)\,dT
+\int_{T_{ref}}^{T_{ad}}\bar{c}_{p,i}^\circ(T)\,dT
 $$
 
 This equation states that the net chemical enthalpy released by reaction becomes sensible heating of the products.
 
-### No-dissociation case
+The adiabatic flame temperature is the temperature at which all released chemical energy is converted into sensible heating of the products.
+
+### Fixed-T evaluation
+
+In Fixed-T evaluation, product properties are evaluated at the imposed temperature $T_{\mathrm{prod}}$ without enforcing energy balance:
+
+$$
+H_{\mathrm{prod}}(T_{\mathrm{prod}})=\sum_i n_i\,\bar{h}_i(T_{\mathrm{prod}})
+$$
+
+$$
+\Delta H_{\mathrm{desired}}=H_{\mathrm{prod}}(T_{\mathrm{prod}})-H_{\mathrm{react}}
+$$
+
+### Adiabatic solve
+
+In Adiabatic solve, the solver finds $T_{ad}$ such that
+
+$$
+H_{\mathrm{react}}=H_{\mathrm{prod}}(T_{ad})
+$$
+
+and reports
+
+$$
+\Delta H_{ad}=H_{\mathrm{prod}}(T_{ad})-H_{\mathrm{react}}\approx 0
+$$
+
+$$
+\Delta T = T_{ad}-T_{\mathrm{prod,desired}}
+$$
+
+### Ideal (no dissociation) case
 
 If product moles $n_i$ are fixed by stoichiometry, then $T_{ad}$ is found by solving a scalar nonlinear equation.
 
-### Dissociation/equilibrium case
+### Equilibrium (dissociation) case
 
 If product composition changes with temperature, then
 
@@ -713,73 +910,75 @@ Now both composition and temperature must be solved together.
 
 ---
 
-## 15. Second Law of Thermodynamics for Steady Combustion
+## 17. Second Law of Thermodynamics for Steady Combustion
 
-For a steady-flow control volume, the entropy rate balance is
+Start from the general control-volume entropy balance:
 
 $$
 \frac{dS_{cv}}{dt}
 =
-\sum_{in}\dot{n}_j\bar{s}_j
--
-\sum_{out}\dot{n}_i\bar{s}_i
+\sum_k\frac{\dot{Q}_k}{T_k}
 +
-\sum_k \frac{\dot{Q}_k}{T_k}
+\sum_{in}\dot{m}s
+-
+\sum_{out}\dot{m}s
 +
-\dot{S}_{gen}
+\dot{S}_{\mathrm{gen}},\qquad \dot{S}_{\mathrm{gen}}\ge 0
 $$
 
-At steady state,
+Assumptions used in this app:
+
+1. steady state: $\frac{dS_{cv}}{dt}=0$
+2. adiabatic combustion: $\sum_k \frac{\dot{Q}_k}{T_k}=0$
+
+Reduced form:
 
 $$
-0
-=
-\sum_{in}\dot{n}_j\bar{s}_j
--
-\sum_{out}\dot{n}_i\bar{s}_i
-+
-\sum_k \frac{\dot{Q}_k}{T_k}
-+
-\dot{S}_{gen}
+\sum_{out}\dot{m}s-\sum_{in}\dot{m}s=\dot{S}_{\mathrm{gen}}\ge 0
 $$
 
-Therefore,
+Molar rate form:
 
 $$
-\dot{S}_{gen}
-=
-\sum_{out}\dot{n}_i\bar{s}_i
--
-\sum_{in}\dot{n}_j\bar{s}_j
--
-\sum_k \frac{\dot{Q}_k}{T_k}
+\sum_{j \in R}\dot{n}_j\,\bar{s}_j(T_j,P_j)=\sum_{i \in P}\dot{n}_i\,\bar{s}_i(T_i,P_i)+\dot{S}_{gen}
 $$
 
-For an adiabatic combustor, $\dot{Q}=0$, so
+### Conversion from rate form to reaction-basis form
+
+Divide by the reference fuel molar flow rate $\dot{n}_{f,\mathrm{ref}}$ to obtain per-mole-of-fuel quantities:
 
 $$
-\dot{S}_{gen}
-=
-\sum_{out}\dot{n}_i\bar{s}_i
--
-\sum_{in}\dot{n}_j\bar{s}_j
-\ge 0
+S_{\mathrm{react}}=\sum_{j \in R} n_j\,\bar{s}_j(T_j,P_j),\qquad S_{\mathrm{prod}}=\sum_{i \in P} n_i\,\bar{s}_i(T_i,P_i)
 $$
 
-This is the second-law requirement for irreversible combustion.
+If needed, the normalized entropy generation is
+
+$$
+S_{gen}=\frac{\dot{S}_{gen}}{\dot{n}_{f,\mathrm{ref}}}
+$$
+
+Connection to tables:
+
+$$
+S_{\mathrm{react}}^{\circ}=\sum_{j \in R} n_j\bar{s}_j^{\circ}(T_j),\qquad S_{\mathrm{react}}=\sum_{j \in R} n_j\bar{s}_j(T_j,P_j)
+$$
+
+and similarly for products. $S^\circ$ captures the temperature-only contribution; $S$ includes mixing and pressure effects through $P_j=X_jP$.
+
+To evaluate $S$ explicitly, we now introduce the standard-state and mixture entropy formulas used in the tables.
 
 ---
 
-## 16. Standard-State and Mixture Entropy
+## 18. Standard-State and Mixture Entropy
 
-The standard-state molar entropy of species $i$ is
+The molar entropy (thermal contribution) of species $i$ is
 
 $$
-\bar{s}_i^\circ(T)
+\bar{s}_i(T)
 =
-\bar{s}_i^\circ(T_{ref})
+\bar{s}_i(T_{ref})
 +
-\int_{T_{ref}}^{T}\frac{\bar{c}_{p,i}^\circ(T)}{T}\,dT
+\int_{T_{ref}}^{T}\frac{\bar{c}_{p,i}(T)}{T}\,dT
 $$
 
 The actual entropy of an ideal-gas species at partial pressure $P_i$ is
@@ -787,9 +986,11 @@ The actual entropy of an ideal-gas species at partial pressure $P_i$ is
 $$
 \bar{s}_i(T,P_i)
 =
-\bar{s}_i^\circ(T)
+\bar{s}_i(T_{ref})
++
+\int_{T_{ref}}^{T}\frac{\bar{c}_{p,i}(T)}{T}\,dT
 -
-\bar{R}_u \ln\left(\frac{P_i}{P^\circ}\right)
+R_u \ln\left(\frac{P_i}{P^\circ}\right)
 $$
 
 Since
@@ -803,9 +1004,11 @@ the species entropy becomes
 $$
 \bar{s}_i(T,P_i)
 =
-\bar{s}_i^\circ(T)
+\bar{s}_i(T_{ref})
++
+\int_{T_{ref}}^{T}\frac{\bar{c}_{p,i}(T)}{T}\,dT
 -
-\bar{R}_u \ln\left(\frac{X_iP}{P^\circ}\right)
+R_u \ln\left(\frac{X_iP}{P^\circ}\right)
 $$
 
 The mixture entropy is then
@@ -821,19 +1024,103 @@ or
 $$
 \bar{s}_{mix}
 =
-\sum_i X_i\bar{s}_i^\circ(T)
+\sum_i X_i\bar{s}_i(T)
 -
-\bar{R}_u
+R_u
 \sum_i X_i\ln\left(\frac{X_iP}{P^\circ}\right)
 $$
 
+The entropy integral is evaluated using temperature-dependent $c_p(T)$ from NASA polynomials, through
+
+$$
+\bar{s}_i(T)-\bar{s}_i(T_{ref})
+$$
+
+ensuring that the full temperature dependence of heat capacity is included.
+
 This includes both thermal entropy and entropy of mixing.
+
+### Constant-$c_p$ approximation (not used)
+
+$$
+\bar{h}_{s,i}(T) \approx \bar{c}_{p,i,\mathrm{avg}}(T-T_{ref})
+$$
+
+$$
+\bar{s}_i(T) \approx \bar{c}_{p,i,\mathrm{avg}}\ln\left(\frac{T}{T_{ref}}\right)
+$$
+
+### Actual solver approach (used)
+
+$$
+\bar{h}_i(T)-\bar{h}_i(T_{ref})=\int_{T_{ref}}^{T}\bar{c}_{p,i}(T)\,dT
+$$
+
+$$
+\bar{s}_i(T)-\bar{s}_i(T_{ref})=\int_{T_{ref}}^{T}\frac{\bar{c}_{p,i}(T)}{T}\,dT
+$$
+
+Implementation note: In the backend, these integrals are evaluated using thermodynamic property functions (for example, $h(T)$ and $s(T)$ from Cantera), which internally integrate NASA polynomial representations of $c_p(T)$.
+
+With entropy defined, we can introduce Gibbs free energy as the thermodynamic potential that governs equilibrium at fixed $T$ and $P$.
 
 ---
 
-## 17. Gibbs Free Energy
+## 19. Gibbs Free Energy
 
-The molar Gibbs free energy is defined as
+Start from the combined First + Second Law identity:
+
+$$
+dU = T\,dS - P\,dV + \sum_i \mu_i\,dn_i
+$$
+
+The internal energy has natural variables $U=U(S,V,n_i)$, but combustion analysis is typically carried out at fixed $T$ and $P$. We therefore introduce thermodynamic potentials via Legendre transforms.
+
+### Helmholtz free energy (required intermediate)
+
+Define
+
+$$
+A = U - TS
+$$
+
+so
+
+$$
+dA = dU - T\,dS - S\,dT = -S\,dT - P\,dV + \sum_i \mu_i\,dn_i
+$$
+
+Thus $A=A(T,V,n_i)$ and represents the maximum useful work at fixed $T$ and $V$. The solver does not use $A$ directly; it is the intermediate potential needed to replace $S$ with $T$.
+
+### Gibbs free energy
+
+Perform a second Legendre transform to replace $V$ with $P$:
+
+$$
+G = A + PV = U - TS + PV
+$$
+
+so
+
+$$
+dG = -S\,dT + V\,dP + \sum_i \mu_i\,dn_i
+$$
+
+Therefore $G=G(T,P,n_i)$. At fixed $T$ and $P$, equilibrium corresponds to minimizing total Gibbs free energy.
+
+For a mixture,
+
+$$
+H = \sum_i n_i\,\bar{h}_i, \qquad S = \sum_i n_i\,\bar{s}_i
+$$
+
+so
+
+$$
+G = \sum_i n_i\,\bar{g}_i
+$$
+
+and the molar Gibbs free energy is
 
 $$
 \bar{g}_i = \bar{h}_i - T\bar{s}_i
@@ -845,17 +1132,19 @@ $$
 \bar{g}_i^\circ(T) = \bar{h}_i^\circ(T) - T\bar{s}_i^\circ(T)
 $$
 
-For a reacting mixture, the total Gibbs free energy is
+The chemical potential follows from
 
 $$
-G = \sum_i n_i \bar{g}_i
+\mu_i = \left(\frac{\partial G}{\partial n_i}\right)_{T,P,n_{j\ne i}}
 $$
 
-At constant temperature and pressure, chemical equilibrium corresponds to minimum total Gibbs free energy.
+At constant temperature and pressure, chemical equilibrium corresponds to minimum total Gibbs free energy. Gibbs free energy is not conserved; it is minimized at equilibrium and determines the final chemical composition.
+
+With Gibbs established, the remaining sections connect formation properties and reaction Gibbs changes to equilibrium constants and dissociation behavior.
 
 ---
 
-## 18. Gibbs Free Energy of Formation
+## 20. Gibbs Free Energy of Formation
 
 The standard Gibbs free energy of formation of species $i$ is
 
@@ -864,7 +1153,7 @@ $$
 =
 \bar{g}_i^\circ(T)
 -
-\sum_{j \in elements}\nu_{ij}\bar{g}_j^\circ(T)
+\sum_{j \in elements}a_{ij}\bar{g}_j^\circ(T)
 $$
 
 where the elemental reference states are
@@ -884,7 +1173,7 @@ This allows thermodynamic formation properties to be computed from standard-stat
 
 ---
 
-## 19. Enthalpy, Entropy, and Gibbs Change of Reaction
+## 21. Enthalpy, Entropy, and Gibbs Change of Reaction
 
 For a reaction written in stoichiometric form, the molar changes are
 
@@ -926,7 +1215,7 @@ This relation connects the first and second laws:
 
 ---
 
-## 20. Heating Value from the First Law
+## 22. Heating Value from the First Law
 
 For steady, constant-pressure combustion at the reference temperature,
 
@@ -950,14 +1239,20 @@ Substituting the enthalpy expression gives a formation-enthalpy-based combustion
 
 ---
 
-## 21. Enthalpy, Entropy, and Gibbs Consistency
+## 23. Enthalpy, Entropy, and Gibbs Consistency
 
 Each species enthalpy may be decomposed as
 
 $$
-\bar{h}_i
+\bar{h}_i(T)
 =
-\bar{h}_{f,i}^\circ + \bar{h}_{s,i}
+\Delta \bar{h}_{f,i}^\circ(T_{ref}) + \bar{h}_{s,i}(T)
+$$
+
+with
+
+$$
+\bar{h}_{s,i}(T_{ref})=0
 $$
 
 Entropy is handled using the standard-state formulation and pressure correction:
@@ -971,7 +1266,7 @@ $$
 $$
 \bar{s}_i(T,P_i)
 =
-\bar{s}_i^\circ(T) - \bar{R}_u\ln\left(\frac{P_i}{P^\circ}\right)
+\bar{s}_i^\circ(T) - R_u\ln\left(\frac{P_i}{P^\circ}\right)
 $$
 
 The Gibbs free energy is then
@@ -994,7 +1289,7 @@ $$
 
 ---
 
-## 22. General Equilibrium Constant Formulation
+## 24. General Equilibrium Constant Formulation
 
 For a general reaction
 
@@ -1027,7 +1322,7 @@ $$
 K_p
 =
 \exp\left(
--\frac{\Delta G^\circ(T)}{\bar{R}_uT}
+-\frac{\Delta G^\circ(T)}{R_uT}
 \right)
 $$
 
@@ -1035,7 +1330,7 @@ This is the fundamental relation linking second-law thermodynamics to equilibriu
 
 ---
 
-## 23. Water-Gas Shift Reaction
+## 25. Water-Gas Shift Reaction
 
 A key secondary combustion reaction is the water-gas shift reaction:
 
@@ -1074,7 +1369,7 @@ $$
 =
 \Delta G^\circ
 +
-\bar{R}_uT\ln Q_p
+R_uT\ln Q_p
 $$
 
 At equilibrium, $\Delta G=0$, so
@@ -1082,7 +1377,7 @@ At equilibrium, $\Delta G=0$, so
 $$
 Q_p
 =
-\exp\left(-\frac{\Delta G^\circ}{\bar{R}_uT}\right)
+\exp\left(-\frac{\Delta G^\circ}{R_uT}\right)
 =
 K_p(T)
 $$
@@ -1119,7 +1414,7 @@ $$
 K_p(T)
 =
 \exp\left(
--\frac{\Delta G^\circ(T)}{\bar{R}_uT}
+-\frac{\Delta G^\circ(T)}{R_uT}
 \right)
 $$
 
@@ -1127,7 +1422,7 @@ This reaction is especially important for rich and dissociated combustion produc
 
 ---
 
-## 24. Equilibrium and Dissociation
+## 26. Equilibrium and Dissociation
 
 When an equilibrium chemistry solver is available, product composition is not fixed by the ideal lean/rich product assumptions. Instead, the mixture is equilibrated at given
 
@@ -1146,7 +1441,7 @@ $$
 subject to elemental conservation constraints
 
 $$
-\sum_i \nu_{ij} n_i = b_j
+\sum_i a_{ij} n_i = b_j
 $$
 
 for each conserved element $j$, where $b_j$ is the total amount of that element introduced by the reactants.
@@ -1167,7 +1462,7 @@ Thus equilibrium combustion is governed simultaneously by:
 
 ---
 
-## 25. Why Equilibrium Flame Temperature Is Lower
+## 27. Why Equilibrium Flame Temperature Is Lower
 
 In the fixed-product ideal model, the released chemical enthalpy primarily heats the products.
 
@@ -1183,11 +1478,27 @@ $$
 
 This reduces the sensible energy available to raise temperature. As a result, the equilibrium adiabatic flame temperature is typically lower than the ideal no-dissociation flame temperature.
 
+---
+
+## 28. Xi-Map Interpretation
+
+The species curves are computed at fixed $T_{\mathrm{prod}}$, while the dashed $T_{ad}(\phi)$ curve is computed from an independent energy balance. These do not represent the same thermodynamic states and must not be directly compared unless the composition is solved at $T_{ad}$.
+
+$$
+n_i = n_i(T_{\mathrm{prod}}) \quad \text{(fixed-}T\text{ curves)}
+$$
+
+$$
+n_i = n_i(T_{ad}) \quad \text{(adiabatic state)}
+$$
+
+The species curves and the dashed temperature line represent different thermodynamic states and should not be directly compared.
+
 In addition, the equilibrium product set changes the effective mixture heat capacity, which further shifts the temperature required to satisfy the first-law balance.
 
 ---
 
-## 26. Summary
+## 29. Summary
 
 The combustion solver is built on three coupled foundations:
 
@@ -1214,8 +1525,26 @@ $$
 $$
 
 $$
-K_p = \exp\left(-\frac{\Delta G^\circ}{\bar{R}_uT}\right)
+K_p = \exp\left(-\frac{\Delta G^\circ}{R_uT}\right)
 $$
 
 The fixed-composition model provides an idealized combustion solution, while the equilibrium model provides a more realistic solution by accounting for dissociation and secondary reactions.
+
+---
+
+### Combustion Solver Summary
+
+$$
+	\text{Stoichiometry} \rightarrow \text{possible species}
+$$
+
+$$
+	\text{First Law} \rightarrow T_{ad}
+$$
+
+$$
+	\text{Gibbs minimization} \rightarrow \text{equilibrium composition}
+$$
+
+Energy conservation sets the temperature, while Gibbs minimization sets the equilibrium composition. Together they connect the derivation to the solver outputs.
 

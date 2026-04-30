@@ -734,6 +734,180 @@ def adiabatic_flame_temperature_equilibrium(
     return 0.5 * (low + high), None
 
 
+def adiabatic_flame_temperature(
+    formula: str,
+    f_over_a: float,
+    mw_fuel: float,
+    t_fuel_k: float,
+    t_air_k: float,
+    p_pa: float,
+    air_model: str | None = None,
+    mode: str = "ideal",
+    *,
+    t_low: float = 300.0,
+    t_high: float = 8000.0,
+    scan_points: int = 60,
+    expand_steps: int = 3,
+    expand_step_k: float = 2000.0,
+    tol: float = 1.0e-6,
+    max_iter: int = 80,
+) -> tuple[float | None, CombustionResult | None, dict]:
+    """Solve for adiabatic flame temperature using the same balance as the main analysis."""
+    diagnostics = {
+        "converged": False,
+        "iterations": None,
+        "residual_kj": None,
+        "note": None,
+        "bracket_low_k": None,
+        "bracket_high_k": None,
+    }
+
+    if not cantera_available():
+        diagnostics["note"] = "Cantera unavailable."
+        return None, None, diagnostics
+    try:
+        import cantera as ct
+    except Exception:
+        diagnostics["note"] = "Cantera unavailable."
+        return None, None, diagnostics
+
+    mech, fuel_spec, fuel_note = find_mechanism_for_fuel(formula)
+    if mech is None or fuel_spec is None:
+        diagnostics["note"] = fuel_note or "Fuel not in mechanism."
+        return None, None, diagnostics
+
+    gas = ct.Solution(mech)
+
+    afr_st = stoich_afr(formula, mw_fuel, air_model)
+    phi = equivalence_ratio(f_over_a, afr_st)
+    a = stoich_oxygen_moles(formula)
+    n2_o2_ratio, _ = air_model_params(air_model)
+    air_o2 = a / phi
+    air_n2 = air_o2 * n2_o2_ratio
+
+    def species_enthalpy_kj(species: str, t_k: float) -> float | None:
+        h_mole = _species_enthalpy_mole(gas, species, t_k, p_pa, formula, fuel_spec)
+        if h_mole is None:
+            return None
+        return h_mole / 1000.0
+
+    reactants = {
+        formula: (1.0, t_fuel_k),
+        "O2": (air_o2, t_air_k),
+        "N2": (air_n2, t_air_k),
+    }
+    h_react_kj = 0.0
+    for species, (mol, t_k) in reactants.items():
+        if mol <= 0.0:
+            continue
+        h_i = species_enthalpy_kj(species, t_k)
+        if h_i is None:
+            diagnostics["note"] = f"Missing enthalpy for {species}."
+            return None, None, diagnostics
+        h_react_kj += mol * h_i
+
+    def enthalpy_balance(t_k: float) -> tuple[float | None, CombustionResult | None]:
+        if mode == "dissociation":
+            result_local = products_dissociation(
+                formula,
+                f_over_a,
+                mw_fuel,
+                t_k,
+                p_pa,
+                air_model,
+            )
+        else:
+            result_local = products_ideal(
+                formula,
+                f_over_a,
+                mw_fuel,
+                t_k,
+                air_model,
+            )
+        if not result_local or not result_local.products_mol:
+            return None, None
+        h_prod_kj = 0.0
+        for species, mol in result_local.products_mol.items():
+            if mol <= 0.0:
+                continue
+            h_i = species_enthalpy_kj(species, t_k)
+            if h_i is None:
+                return None, None
+            h_prod_kj += mol * h_i
+        return h_prod_kj - h_react_kj, result_local
+
+    def scan_for_bracket(low: float, high: float, points: int) -> tuple[float | None, float | None, float | None, float | None]:
+        if points < 2 or high <= low:
+            return None, None, None, None
+        step = (high - low) / (points - 1)
+        last_t = None
+        last_f = None
+        for idx in range(points):
+            t_k = low + idx * step
+            f_val, _ = enthalpy_balance(t_k)
+            if f_val is None:
+                continue
+            if last_f is not None and f_val * last_f <= 0.0:
+                return last_t, t_k, last_f, f_val
+            last_t = t_k
+            last_f = f_val
+        return None, None, None, None
+
+    low = float(t_low)
+    high = float(t_high)
+    f_low, _ = enthalpy_balance(low)
+    f_high, _ = enthalpy_balance(high)
+    if f_low is not None and f_high is not None and f_low * f_high <= 0.0:
+        diagnostics["bracket_low_k"] = low
+        diagnostics["bracket_high_k"] = high
+    else:
+        bracket_found = False
+        for _ in range(max(expand_steps, 1)):
+            b_low, b_high, b_f_low, b_f_high = scan_for_bracket(low, high, scan_points)
+            if b_low is not None and b_high is not None:
+                low, high = b_low, b_high
+                f_low, f_high = b_f_low, b_f_high
+                diagnostics["bracket_low_k"] = low
+                diagnostics["bracket_high_k"] = high
+                bracket_found = True
+                break
+            high += expand_step_k
+        if not bracket_found:
+            diagnostics["note"] = "No bracket found for adiabatic temperature."
+            return None, None, diagnostics
+
+    result_final = None
+    for iteration in range(max_iter):
+        mid = 0.5 * (low + high)
+        f_mid, result_mid = enthalpy_balance(mid)
+        if f_mid is None:
+            diagnostics["note"] = "Adiabatic enthalpy evaluation failed."
+            return None, None, diagnostics
+        result_final = result_mid
+        if abs(f_mid) < tol:
+            diagnostics["converged"] = True
+            diagnostics["iterations"] = iteration + 1
+            diagnostics["residual_kj"] = f_mid
+            return mid, result_mid, diagnostics
+        if f_low is None or f_high is None:
+            diagnostics["note"] = "Adiabatic enthalpy evaluation failed."
+            return None, None, diagnostics
+        if f_low * f_mid <= 0.0:
+            high = mid
+            f_high = f_mid
+        else:
+            low = mid
+            f_low = f_mid
+
+    mid = 0.5 * (low + high)
+    f_mid, result_mid = enthalpy_balance(mid)
+    diagnostics["iterations"] = max_iter
+    diagnostics["residual_kj"] = f_mid
+    if diagnostics["note"] is None:
+        diagnostics["note"] = "Max iterations reached."
+    return mid, result_mid or result_final, diagnostics
+
+
 def products_dissociation(
     formula: str,
     f_over_a: float,
@@ -848,6 +1022,13 @@ def latex_derivation(
     products_mol: Dict[str, float] | None = None,
     min_mol: float = 1e-6,
     air_model: str | None = None,
+    mixture_input_mode: str | None = None,
+    phi_input: float | None = None,
+    f_st: float | None = None,
+    phi_used: float | None = None,
+    afr_used: float | None = None,
+    temp_mode: str | None = None,
+    t_prod_desired_k: float | None = None,
 ) -> str:
     counts = parse_formula(formula)
     c = counts.get("C", 0.0)
@@ -857,8 +1038,10 @@ def latex_derivation(
 
     a = stoich_oxygen_moles(formula)
     afr_st = stoich_afr(formula, mw_fuel, air_model)
-    phi = equivalence_ratio(f_over_a, afr_st)
-    afr = 1.0 / f_over_a if f_over_a else float("nan")
+    f_st_value = f_st if f_st is not None else 1.0 / max(afr_st, 1e-12)
+    phi = phi_used if phi_used is not None else equivalence_ratio(f_over_a, afr_st)
+    afr = afr_used if afr_used is not None else (1.0 / f_over_a if f_over_a else float("nan"))
+    mixture_mode = mixture_input_mode or "f"
 
     if products_mol is None:
         result = products_ideal(formula, f_over_a, mw_fuel, None, air_model)
@@ -1224,6 +1407,10 @@ def latex_derivation(
     kp_ideal = water_gas_shift_kp(ideal_result.products_mol)
     kp_diss = water_gas_shift_kp(products_mol)
 
+    temp_label = "T_{prod}"
+    if temp_mode == "adiabatic":
+        temp_label = "T_{ad}"
+
     lines = [
         "TEXT: # Symbolic Derivation from Current Solver State",
         "",
@@ -1232,9 +1419,14 @@ def latex_derivation(
         "TEXT: ## Current solver inputs",
         f"MATH: \\text{{Fuel}} = {latex_species(formula)}",
         f"MATH: \\text{{Air model}} = {air_model_label}",
-        fr"MATH: T_{{ref}} = {hv_ref_t_label:.2f}\ \mathrm{{K}}, \qquad T_{{prod}} = {t_prod_label:.2f}\ \mathrm{{K}}" if t_prod_k is not None else fr"MATH: T_{{ref}} = {hv_ref_t_label:.2f}\ \mathrm{{K}}",
+        fr"MATH: T_{{ref}} = {hv_ref_t_label:.2f}\ \mathrm{{K}}, \qquad {temp_label} = {t_prod_label:.2f}\ \mathrm{{K}}" if t_prod_k is not None else fr"MATH: T_{{ref}} = {hv_ref_t_label:.2f}\ \mathrm{{K}}",
+        fr"MATH: T_{{prod,desired}} = {t_prod_desired_k:.2f}\ \mathrm{{K}}" if t_prod_desired_k is not None else "",
         fr"MATH: P = {p_pa:.0f}\ \mathrm{{Pa}}",
-        f"MATH: \\frac{{\\dot m_f}}{{\\dot m_a}} = {f_over_a:.4g}",
+        f"MATH: \\text{{Mixture input mode}} = {mixture_mode}",
+        f"MATH: f = \\frac{{\\dot m_f}}{{\\dot m_a}} = {f_over_a:.4g}",
+        f"MATH: \\phi_{{input}} = {phi_input:.4g}" if phi_input is not None else "",
+        f"MATH: f_{{st}} = {f_st_value:.4g}",
+        f"MATH: AFR_{{st}} = {afr_st:.4g}",
         f"MATH: AFR = \\frac{{\\dot m_a}}{{\\dot m_f}} = {afr:.4g}",
         "",
         "TEXT: ---",
@@ -1252,17 +1444,18 @@ def latex_derivation(
         "TEXT: ---",
         "",
         "TEXT: ## 2. Stoichiometric air-fuel ratio",
-        r"TEXT: Using the dry-air model,",
-        r"MATH: m_{air,st} = a\left(MW_{O_2} + 3.76MW_{N_2}\right)",
+        r"TEXT: Using the selected air model,",
+        fr"MATH: m_{{air,st}} = a\left(MW_{{O_2}} + {n2_o2_ratio:.2f}MW_{{N_2}}\right)",
         r"MATH: AFR_{st} = \frac{m_{air,st}}{MW_f}",
         f"MATH: AFR_{{st}} = {afr_st:.4f}",
         "",
         "TEXT: ---",
         "",
         "TEXT: ## 3. Equivalence ratio",
-        r"MATH: \phi = \frac{(F/A)}{(F/A)_{st}}",
-        r"MATH: \phi = \frac{AFR_{st}}{AFR}",
-        fr"MATH: \phi = \frac{{{afr_st:.4f}}}{{{afr:.4f}}} = {phi:.4f}",
+        r"MATH: \phi = \frac{f}{f_{st}},\qquad f=\phi f_{st}",
+        fr"MATH: f_{{st}} = {f_st_value:.4f},\quad f = {f_over_a:.4g},\quad \phi = {phi:.4f}",
+        r"MATH: AFR = \frac{1}{f},\qquad AFR_{st} = \frac{1}{f_{st}}",
+        fr"MATH: AFR = {afr:.4g},\quad AFR_{{st}} = {afr_st:.4g}",
         "",
         f"TEXT: Since $\\phi {'<' if phi < 1 else '=' if phi == 1 else '>'} 1$, the mixture is **{regime}**.",
         "",
@@ -1320,7 +1513,20 @@ def latex_derivation(
         "",
         "TEXT: ---",
         "",
-        "TEXT: ## 7. Sensible thermodynamic properties",
+        "TEXT: ## 7. First and Second Law (general to reduced)",
+        r"TEXT: General control-volume energy balance:",
+        r"MATH: \frac{dE_{cv}}{dt}=\dot Q-\dot W+\sum_{in}\dot m\left(h+\frac{V^2}{2}+gz\right)-\sum_{out}\dot m\left(h+\frac{V^2}{2}+gz\right)",
+        r"TEXT: Assumptions: steady, adiabatic, \dot W\approx0, \Delta KE\approx0, \Delta PE\approx0.",
+        r"MATH: \sum_{in}\dot m h=\sum_{out}\dot m h",
+        r"MATH: H_{\mathrm{react}}=\sum_{j \in R} n_j\bar h_j(T_j),\quad H_{\mathrm{prod}}=\sum_{i \in P} n_i\bar h_i(T)",
+        r"TEXT: General control-volume entropy balance:",
+        r"MATH: \frac{dS_{cv}}{dt}=\sum_k\frac{\dot Q_k}{T_k}+\sum_{in}\dot m s-\sum_{out}\dot m s+\dot S_{\mathrm{gen}},\quad \dot S_{\mathrm{gen}}\ge0",
+        r"TEXT: Assumptions: steady, adiabatic.",
+        r"MATH: \sum_{out}\dot m s-\sum_{in}\dot m s=\dot S_{\mathrm{gen}}\ge0",
+        "",
+        "TEXT: ---",
+        "",
+        "TEXT: ## 8. Sensible thermodynamic properties",
         r"TEXT: The solver reports sensible enthalpy and entropy relative to $T_{ref}$:",
         r"MATH: \bar h_{s,i}(T) = \int_{T_{ref}}^{T} \bar c_{p,i}^{\circ}(T)\,dT",
         r"MATH: \bar s_{s,i}(T) = \int_{T_{ref}}^{T} \frac{\bar c_{p,i}^{\circ}(T)}{T}\,dT",
@@ -1333,14 +1539,20 @@ def latex_derivation(
         "",
         "TEXT: ---",
         "",
-        "TEXT: ## 8. Gibbs free energy and equilibrium",
+        "TEXT: ## 9. Gibbs free energy and equilibrium",
+        r"TEXT: Start from the combined First + Second Law identity:",
+        r"MATH: dU = T\,dS - P\,dV + \sum_i \mu_i\,dn_i",
+        r"TEXT: Helmholtz free energy (intermediate):",
+        r"MATH: A = U - TS",
+        r"MATH: dA = -S\,dT - P\,dV + \sum_i \mu_i\,dn_i",
+        r"TEXT: Gibbs free energy:",
+        r"MATH: G = A + PV = U - TS + PV",
+        r"MATH: dG = -S\,dT + V\,dP + \sum_i \mu_i\,dn_i",
+        r"TEXT: At fixed T,P: equilibrium minimizes total G.",
         r"MATH: \bar g_i^{\circ}(T) = \bar h_i^{\circ}(T) - T\bar s_i^{\circ}(T)",
         r"TEXT: and Gibbs free energy of formation",
         r"MATH: \bar g_{f,i}^{\circ}(T) = \bar g_i^{\circ}(T) - \sum_{j \in elements}\nu_{ij}\bar g_j^{\circ}(T)",
         r"MATH: C(s),\ H_2,\ O_2,\ N_2 \quad \text{at} \quad P^{\circ} = 1\ \mathrm{atm}",
-        r"TEXT: At constant temperature and pressure,",
-        r"MATH: \Delta G = \Delta H - T\Delta S",
-        r"MATH: Q = \Delta H = \Delta G + T\Delta S",
         r"TEXT: For a general reaction,",
         r"MATH: K_p = \prod_i \left(\frac{P_i}{P^\circ}\right)^{\nu_i}",
         r"MATH: \Delta G^\circ(T)=\sum_i \nu_i \bar g_i^\circ(T)",

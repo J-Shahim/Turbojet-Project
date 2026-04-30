@@ -99,10 +99,15 @@ class AnalysisStripModelInputs(BaseModel):
 
 class FuelAnalysisInputs(BaseModel):
     fuel_id: str = Field("CH4", description="Fuel identifier")
+    mixture_input_mode: str = Field("f", description="Mixture input basis: f or phi")
     f_over_a: float = Field(0.02, description="Fuel-air ratio")
-    mode: str = Field("ideal", description="Combustion mode: ideal or dissociation")
+    phi_input: float | None = Field(None, description="Equivalence ratio input")
+    mode: str = Field("ideal", description="Chemistry model: ideal or dissociation")
+    temp_mode: str = Field("fixed", description="Temperature mode: fixed or adiabatic")
     t_k: float = Field(2000.0, description="Combustion temperature (K)")
-    t_react_k: float = Field(298.15, description="Reactant enthalpy temperature (K)")
+    t_fuel_k: float = Field(298.15, description="Fuel reactant temperature (K)")
+    t_air_k: float = Field(298.15, description="Air reactant temperature (K)")
+    t_react_k: float = Field(298.15, description="(Deprecated) Reactant enthalpy temperature (K)")
     p_pa: float = Field(101325.0, description="Combustion pressure (Pa)")
     air_model: str = Field("dry_air", description="Air model: dry_air or oxygen")
     fuel_phase: str = Field("vapor", description="Fuel phase: vapor or liquid")
@@ -116,10 +121,73 @@ class FuelXiMapInputs(BaseModel):
     air_model: str = Field("dry_air", description="Air model: dry_air or oxygen")
     p_pa: float = Field(101325.0, description="Combustion pressure (Pa)")
     t_k: float = Field(2000.0, description="Combustion temperature (K)")
+    t_fuel_k: float = Field(298.15, description="Fuel reactant temperature (K)")
+    t_air_k: float = Field(298.15, description="Air reactant temperature (K)")
     phi_min: float = Field(0.0001, description="Equivalence ratio sweep min")
     phi_max: float = Field(2.0, description="Equivalence ratio sweep max")
     phi_step: float = Field(0.05, description="Equivalence ratio sweep step")
     min_mol: float = Field(1.0e-6, description="Minimum mol threshold for products")
-    include_ideal: bool = Field(True, description="Include ideal products map")
-    include_dissociation: bool = Field(True, description="Include dissociation products map")
+    include_ideal: bool = Field(True, description="Include Ideal (no dissociation) products map")
+    include_dissociation: bool = Field(True, description="Include Equilibrium (dissociation) products map")
     max_points: int = Field(4000, description="Max phi points per sweep")
+
+
+class FuelDissociationSweepInputs(BaseModel):
+    fuel_id: str = Field("CH4", description="Fuel identifier")
+    air_model: str = Field("dry_air", description="Air model: dry_air or oxygen")
+    temp_mode: str = Field("fixed", description="Temperature mode: fixed or adiabatic")
+    t_k: float = Field(2000.0, description="Product temperature (K) for fixed-T")
+    t_fuel_k: float = Field(298.15, description="Fuel reactant temperature (K)")
+    t_air_k: float = Field(298.15, description="Air reactant temperature (K)")
+    phi_min: float = Field(0.5, description="Equivalence ratio sweep min")
+    phi_max: float = Field(2.0, description="Equivalence ratio sweep max")
+    phi_step: float = Field(0.05, description="Equivalence ratio sweep step")
+    pressure_values_pa: list[float] = Field(
+        default_factory=lambda: [101325.0, 5.0 * 101325.0, 10.0 * 101325.0, 30.0 * 101325.0],
+        description="Pressures (Pa) for phi sweep curves",
+    )
+    phi_values: list[float] = Field(
+        default_factory=list,
+        description="Phi values for pressure sweep curves",
+    )
+    p_min_pa: float = Field(0.1 * 101325.0, description="Pressure sweep min (Pa)")
+    p_max_pa: float = Field(30.0 * 101325.0, description="Pressure sweep max (Pa)")
+    p_step_pa: float = Field(1.0 * 101325.0, description="Pressure sweep step (Pa) if linear")
+    p_points: int = Field(12, description="Pressure sweep points if log scale")
+    p_scale: str = Field("log", description="Pressure sweep scale: linear or log")
+    adiabatic_basis: str = Field(
+        "equilibrium",
+        description="Adiabatic comparison basis: equilibrium, ideal, or user",
+    )
+    compare_temp_mode: str = Field(
+        "fixed",
+        description="Sweep comparison basis: fixed or adiabatic",
+    )
+    compare_t_k: float | None = Field(
+        None,
+        description="Comparison temperature (K) for fixed sweeps; defaults to t_k",
+    )
+
+
+class FuelDissociationSingleInputs(BaseModel):
+    fuel_id: str = Field("CH4", description="Fuel identifier")
+    mixture_input_mode: str = Field("f", description="Mixture input basis: f or phi")
+    f_over_a: float = Field(0.02, description="Fuel-air ratio")
+    phi_input: float | None = Field(None, description="Equivalence ratio input")
+    air_model: str = Field("dry_air", description="Air model: dry_air or oxygen")
+    p_pa: float = Field(101325.0, description="Combustion pressure (Pa)")
+    t_k: float = Field(2000.0, description="Comparison temperature (K) when fixed")
+    t_fuel_k: float = Field(298.15, description="Fuel reactant temperature (K)")
+    t_air_k: float = Field(298.15, description="Air reactant temperature (K)")
+    compare_temp_mode: str = Field(
+        "fixed",
+        description="Comparison basis: fixed or adiabatic",
+    )
+    compare_t_k: float | None = Field(
+        None,
+        description="Comparison temperature (K) for fixed mode; defaults to t_k",
+    )
+    adiabatic_basis: str = Field(
+        "equilibrium",
+        description="Adiabatic comparison basis: equilibrium, ideal, or user",
+    )

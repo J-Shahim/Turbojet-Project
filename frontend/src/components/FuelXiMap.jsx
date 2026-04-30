@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import LatexText from "./LatexText";
+import TableView from "./TableView";
 import { postJson } from "../api/client";
 
 const DEFAULT_MAP_INPUTS = {
@@ -19,11 +20,13 @@ function toNumberOrEmpty(value) {
   return Number.isFinite(num) ? num : value;
 }
 
-export default function FuelXiMap({ inputs, speciesList, mode }) {
+export default function FuelXiMap({ inputs, speciesList, mode, selectedPhi, selectedTadK }) {
   const [mapInputs, setMapInputs] = useState(DEFAULT_MAP_INPUTS);
   const [mapData, setMapData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [keySpeciesOnly, setKeySpeciesOnly] = useState(true);
+  const [keySpeciesCount, setKeySpeciesCount] = useState(8);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [showTimer, setShowTimer] = useState(false);
   const computeStartRef = useRef(0);
@@ -69,6 +72,8 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
         air_model: inputs?.air_model,
         p_pa: inputs?.p_pa,
         t_k: mapInputs.t_k,
+        t_fuel_k: inputs?.t_fuel_k,
+        t_air_k: inputs?.t_air_k,
         phi_min: mapInputs.phi_min,
         phi_max: mapInputs.phi_max,
         phi_step: mapInputs.phi_step,
@@ -132,7 +137,8 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
     const valueLabel = options.valueLabel || "X_i";
     const valueFormat = options.valueFormat || ".6f";
     const hasData = (values) => Array.isArray(values) && values.some((val) => Number.isFinite(val) && val > 0);
-    const traces = series.species
+    const speciesSource = options.visibleSpecies?.length ? options.visibleSpecies : series.species;
+    const traces = speciesSource
       .filter((species) => hasData(series.xi?.[species]))
       .map((species, idx) => {
         const rawValues = series.xi?.[species] || [];
@@ -196,12 +202,13 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
       flatTraces.push({
         type: "scatter",
         mode: "lines",
-        name: "T_ad",
+        name: "Adiabatic flame temperature (T_ad(\u03c6))",
         x: tadSeries.phi,
         y: tadValues,
         yaxis: "y2",
         line: { width: 1.6, color: "#ffffff", dash: "dot" },
-        hovertemplate: "T_ad<br>index=%{pointNumber}<br>phi=%{x:.4f}<br>T_ad=%{y:.0f} K<extra></extra>"
+        connectgaps: false,
+        hovertemplate: "Adiabatic flame temperature<br>index=%{pointNumber}<br>phi=%{x:.4f}<br>T_ad=%{y:.0f} K<extra></extra>"
       });
       const tadMaxIndex = tadValues.reduce((bestIdx, val, currentIdx) => {
         if (!Number.isFinite(val)) {
@@ -236,29 +243,201 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
   };
 
   const idealTrace = buildTrace(
-    "Ideal Products",
+    "Ideal (no dissociation) products",
     idealSeries,
     { phi: mapData?.tad?.phi, values: mapData?.tad?.ideal }
   );
   const idealPpmTrace = buildTrace(
-    "Ideal Products (ppm)",
+    "Ideal (no dissociation) products (ppm)",
     idealSeries,
     { phi: mapData?.tad?.phi, values: mapData?.tad?.ideal },
     { scale: 1.0e6, valueLabel: "ppm", valueFormat: ".2f" }
   );
   const dissTrace = buildTrace(
-    "Dissociation Products",
+    "Equilibrium (dissociation) products",
     dissSeries,
     { phi: mapData?.tad?.phi, values: mapData?.tad?.dissociation }
   );
   const dissPpmTrace = buildTrace(
-    "Dissociation Products (ppm)",
+    "Equilibrium (dissociation) products (ppm)",
     dissSeries,
     { phi: mapData?.tad?.phi, values: mapData?.tad?.dissociation },
     { scale: 1.0e6, valueLabel: "ppm", valueFormat: ".2f" }
   );
 
   const activeMode = mode === "dissociation" ? "dissociation" : "ideal";
+  const activeTadValues = activeMode === "dissociation"
+    ? mapData?.tad?.dissociation
+    : mapData?.tad?.ideal;
+  const activeTadDiagnostics = activeMode === "dissociation"
+    ? mapData?.tad?.dissociation_diagnostics
+    : mapData?.tad?.ideal_diagnostics;
+
+  const selectedPhiValue = Number.isFinite(selectedPhi) ? selectedPhi : null;
+  const selectedTadValue = Number.isFinite(selectedTadK) ? selectedTadK : null;
+
+  const visibleSpecies = useMemo(() => {
+    const series = activeMode === "dissociation" ? dissSeries : idealSeries;
+    if (!series?.species || !series?.xi) {
+      return [];
+    }
+    if (!keySpeciesOnly) {
+      return series.species;
+    }
+    const scores = series.species.map((species) => {
+      const values = series.xi?.[species] || [];
+      const maxVal = values.reduce((max, val) => (Number.isFinite(val) && val > max ? val : max), 0);
+      return { species, maxVal };
+    });
+    return scores
+      .sort((a, b) => b.maxVal - a.maxVal)
+      .slice(0, Math.max(1, Number(keySpeciesCount) || 1))
+      .map((item) => item.species);
+  }, [activeMode, dissSeries, idealSeries, keySpeciesCount, keySpeciesOnly]);
+
+  const hasTadGaps = useMemo(() => {
+    if (!Array.isArray(activeTadValues)) {
+      return false;
+    }
+    return activeTadValues.some((val) => !Number.isFinite(val));
+  }, [activeTadValues]);
+
+  const tadFailureCount = useMemo(() => {
+    if (!Array.isArray(activeTadDiagnostics)) {
+      return 0;
+    }
+    return activeTadDiagnostics.filter((item) => item?.converged === false || item?.note).length;
+  }, [activeTadDiagnostics]);
+
+  const buildXiLayout = ({ yTitle, yScale = "linear" }) => ({
+    autosize: true,
+    xaxis: {
+      title: { text: "Equivalence ratio, phi [-]", font: { color: "#f3eaff", size: 14 } },
+      tickfont: { color: "#f3eaff", size: 11 },
+      color: "#f3eaff",
+      automargin: true,
+      gridcolor: "rgba(255, 214, 153, 0.2)",
+      griddash: "dot",
+      showgrid: true,
+      showspikes: true,
+      spikemode: "across",
+      spikesnap: "cursor",
+      spikethickness: 1,
+      spikecolor: "rgba(243, 234, 255, 0.6)"
+    },
+    yaxis: {
+      title: { text: yTitle, font: { color: "#f3eaff", size: 14 } },
+      tickfont: { color: "#f3eaff", size: 11 },
+      color: "#f3eaff",
+      automargin: true,
+      type: yScale,
+      gridcolor: "rgba(255, 214, 153, 0.2)",
+      griddash: "dot",
+      showgrid: true
+    },
+    yaxis2: {
+      title: { text: "Adiabatic flame temperature, T_ad [K]", font: { color: "#f3eaff", size: 13 }, standoff: 18 },
+      tickfont: { color: "#f3eaff", size: 11 },
+      color: "#f3eaff",
+      overlaying: "y",
+      side: "right",
+      showgrid: false,
+      zeroline: false
+    },
+    showlegend: true,
+    legend: {
+      orientation: "h",
+      y: 1.08,
+      x: 0,
+      xanchor: "left",
+      yanchor: "bottom",
+      bgcolor: "rgba(0,0,0,0.4)",
+      bordercolor: "rgba(255,255,255,0.15)",
+      borderwidth: 1,
+      font: { color: "#f3eaff", size: 11 }
+    },
+    hoverdistance: 15,
+    spikedistance: 15,
+    margin: { t: 80, r: 60, l: 70, b: 70 },
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(255,255,255,0.08)",
+    font: { color: "#f3eaff", size: 12 }
+  });
+
+  const tadMatch = useMemo(() => {
+    if (!Array.isArray(mapData?.tad?.phi)) {
+      return null;
+    }
+    if (!Array.isArray(activeTadValues)) {
+      return null;
+    }
+    if (selectedPhiValue === null || selectedTadValue === null) {
+      return null;
+    }
+    let bestIdx = -1;
+    let bestDiff = Infinity;
+    mapData.tad.phi.forEach((phiVal, idx) => {
+      if (!Number.isFinite(phiVal)) {
+        return;
+      }
+      const diff = Math.abs(phiVal - selectedPhiValue);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIdx = idx;
+      }
+    });
+    if (bestIdx < 0) {
+      return null;
+    }
+    const tadAtPhi = activeTadValues[bestIdx];
+    if (!Number.isFinite(tadAtPhi)) {
+      return {
+        phi: mapData.tad.phi[bestIdx],
+        t_ad_k: null,
+        delta_k: null,
+        phi_delta: bestDiff,
+        match_ok: false
+      };
+    }
+    const delta = tadAtPhi - selectedTadValue;
+    return {
+      phi: mapData.tad.phi[bestIdx],
+      t_ad_k: tadAtPhi,
+      delta_k: delta,
+      phi_delta: bestDiff,
+      match_ok: Math.abs(delta) <= 1.0
+    };
+  }, [activeTadValues, mapData?.tad?.phi, selectedPhiValue, selectedTadValue]);
+
+  const tadDiagnosticsTable = useMemo(() => {
+    if (!Array.isArray(activeTadDiagnostics) || !activeTadDiagnostics.length) {
+      return null;
+    }
+    const rows = activeTadDiagnostics.map((item) => ({
+      "phi": Number.isFinite(item?.phi) ? Number(item.phi).toFixed(4) : "--",
+      "T_ad (K)": Number.isFinite(item?.t_ad_k) ? Number(item.t_ad_k).toFixed(2) : "--",
+      "converged": item?.converged === true ? "Yes" : item?.converged === false ? "No" : "--",
+      "iter": Number.isFinite(item?.iterations) ? item.iterations : "--",
+      "residual (kJ)": Number.isFinite(item?.residual_kj) ? Number(item.residual_kj).toExponential(3) : "--",
+      "note": item?.note || ""
+    }));
+    return {
+      title: "Xi sweep diagnostics",
+      table: {
+        columns: ["phi", "T_ad (K)", "converged", "iter", "residual (kJ)", "note"],
+        rows
+      }
+    };
+  }, [activeTadDiagnostics]);
+
+  const reactantLabel = useMemo(() => {
+    const tFuel = inputs?.t_fuel_k;
+    const tAir = inputs?.t_air_k;
+    if (!Number.isFinite(tFuel) || !Number.isFinite(tAir)) {
+      return "";
+    }
+    return `T_fuel=${Number(tFuel).toFixed(0)} K, T_air=${Number(tAir).toFixed(0)} K`;
+  }, [inputs]);
 
   return (
     <div className="analysis-content">
@@ -278,10 +457,10 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                   step={1}
                   onChange={handleChange("t_k")}
                 />
-                <div className="analysis-input-hint">Fixed products temperature for Xi curves; does not set the T_ad vs phi line.</div>
+                <div className="analysis-input-hint">Fixed product temperature for Xi curves; the adiabatic T_ad sweep uses reactant temperatures from the main inputs.</div>
               </label>
               <label className="analysis-input-field">
-                <span className="analysis-input-label">phi min</span>
+                <span className="analysis-input-label"><LatexText latex={String.raw`\phi_{min}`} /></span>
                 <input
                   type="number"
                   value={mapInputs.phi_min}
@@ -290,7 +469,7 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                 />
               </label>
               <label className="analysis-input-field">
-                <span className="analysis-input-label">phi max</span>
+                <span className="analysis-input-label"><LatexText latex={String.raw`\phi_{max}`} /></span>
                 <input
                   type="number"
                   value={mapInputs.phi_max}
@@ -299,7 +478,7 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                 />
               </label>
               <label className="analysis-input-field">
-                <span className="analysis-input-label">phi step</span>
+                <span className="analysis-input-label"><LatexText latex={String.raw`\Delta\phi`} /></span>
                 <input
                   type="number"
                   value={mapInputs.phi_step}
@@ -322,6 +501,31 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                   {speciesOptions.length ? speciesOptions.join(", ") : "Compute products first."}
                 </div>
               </label>
+              <label className="analysis-input-field">
+                <span className="analysis-input-label">Key species only</span>
+                <div className="analysis-input-toggle">
+                  <input
+                    type="checkbox"
+                    checked={keySpeciesOnly}
+                    onChange={(event) => setKeySpeciesOnly(event.target.checked)}
+                  />
+                  <span className="analysis-input-hint">
+                    Top N species by max <LatexText latex={String.raw`X_i`} /> in this sweep.
+                  </span>
+                </div>
+              </label>
+              <label className="analysis-input-field">
+                <span className="analysis-input-label">Key species count</span>
+                <input
+                  type="number"
+                  min={3}
+                  max={20}
+                  step={1}
+                  value={keySpeciesCount}
+                  onChange={(event) => setKeySpeciesCount(toNumberOrEmpty(event.target.value))}
+                  disabled={!keySpeciesOnly}
+                />
+              </label>
             </div>
           </div>
           <div className="analysis-plot-actions">
@@ -339,66 +543,23 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
         <div className="xi-plot-stack">
           {activeMode === "ideal" ? (
             <div className="plot-card">
-              <div className="plot-frame plot-frame--performance">
+              <div className="plot-card-header">
+                <h3>Ideal Products (Xi)</h3>
+                <div className="plot-card-meta">Fixed T_prod = {Number(mapInputs.t_k).toFixed(0)} K{reactantLabel ? `; ${reactantLabel}` : ""}</div>
+                <div className="plot-card-meta">Dashed line: adiabatic flame temperature T_ad(phi)</div>
+              </div>
+              <div className="plot-frame plot-frame--xi">
                 <Plot
-                  data={idealTrace.traces}
-                  layout={{
-                    autosize: true,
-                    title: {
-                      text: `${idealTrace.title}<br><span style="font-size:12px;opacity:0.85">Fixed T_prod = ${Number(mapInputs.t_k).toFixed(0)} K</span>`,
-                      font: { color: "#f3eaff", size: 17 }
-                    },
-                    xaxis: {
-                      title: { text: "$\\text{Equivalence ratio, }\\phi\\ \\text{[d.l.]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true,
-                      showspikes: true,
-                      spikemode: "across",
-                      spikesnap: "cursor",
-                      spikethickness: 1,
-                      spikecolor: "rgba(243, 234, 255, 0.6)"
-                    },
-                    yaxis: {
-                      title: { text: "$\\text{Mole fraction, }X_i\\ \\text{[d.l.]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true
-                    },
-                    yaxis2: {
-                      title: { text: "$\\text{Adiabatic flame temperature, }T_{ad}\\ \\text{[K]}$", font: { color: "#f3eaff", size: 13 }, standoff: 18 },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      overlaying: "y",
-                      side: "right",
-                      showgrid: false,
-                      zeroline: false
-                    },
-                    showlegend: true,
-                    legend: {
-                      orientation: "v",
-                      y: 1.0,
-                      x: 1.1,
-                      xanchor: "left",
-                      yanchor: "top",
-                      bgcolor: "rgba(0,0,0,0.5)",
-                      bordercolor: "rgba(255,255,255,0.15)",
-                      borderwidth: 1,
-                      font: { color: "#f3eaff", size: 12 }
-                    },
-                    hoverdistance: 15,
-                    spikedistance: 15,
-                    margin: { t: 90, r: 160, l: 70, b: 70 },
-                    paper_bgcolor: "rgba(0,0,0,0)",
-                    plot_bgcolor: "rgba(255,255,255,0.08)",
-                    font: { color: "#f3eaff", size: 12 }
-                  }}
+                  data={buildTrace(
+                    idealTrace.title,
+                    idealSeries,
+                    { phi: mapData?.tad?.phi, values: mapData?.tad?.ideal },
+                    { visibleSpecies }
+                  ).traces}
+                  layout={buildXiLayout({
+                    yTitle: "Mole fraction, X_i [-]",
+                    yScale: "linear"
+                  })}
                   config={plotConfig}
                   style={{ width: "100%", height: "100%" }}
                   useResizeHandler
@@ -408,73 +569,29 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                 <p className="plot-caption">{mapData.ideal.note}</p>
               ) : null}
               {mapData?.tad?.ideal_note ? (
-                <p className="plot-caption">T_ad (ideal): {mapData.tad.ideal_note}</p>
+                <p className="plot-caption">T_ad (Ideal (no dissociation)): {mapData.tad.ideal_note}</p>
               ) : null}
             </div>
           ) : null}
           {activeMode === "ideal" ? (
             <div className="plot-card">
-              <div className="plot-frame plot-frame--performance">
+              <div className="plot-card-header">
+                <h3>Ideal Products (ppm)</h3>
+                <div className="plot-card-meta">Fixed T_prod = {Number(mapInputs.t_k).toFixed(0)} K{reactantLabel ? `; ${reactantLabel}` : ""}</div>
+                <div className="plot-card-meta">Dashed line: adiabatic flame temperature T_ad(phi)</div>
+              </div>
+              <div className="plot-frame plot-frame--xi">
                 <Plot
-                  data={idealPpmTrace.traces}
-                  layout={{
-                    autosize: true,
-                    title: {
-                      text: `${idealPpmTrace.title}<br><span style="font-size:12px;opacity:0.85">Fixed T_prod = ${Number(mapInputs.t_k).toFixed(0)} K</span>`,
-                      font: { color: "#f3eaff", size: 17 }
-                    },
-                    xaxis: {
-                      title: { text: "$\\text{Equivalence ratio, }\\phi\\ \\text{[d.l.]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true,
-                      showspikes: true,
-                      spikemode: "across",
-                      spikesnap: "cursor",
-                      spikethickness: 1,
-                      spikecolor: "rgba(243, 234, 255, 0.6)"
-                    },
-                    yaxis: {
-                      title: { text: "$\\text{Mole fraction, }X_i\\ \\text{[ppm]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      type: "log",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true
-                    },
-                    yaxis2: {
-                      title: { text: "$\\text{Adiabatic flame temperature, }T_{ad}\\ \\text{[K]}$", font: { color: "#f3eaff", size: 13 }, standoff: 18 },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      overlaying: "y",
-                      side: "right",
-                      showgrid: false,
-                      zeroline: false
-                    },
-                    showlegend: true,
-                    legend: {
-                      orientation: "v",
-                      y: 1.0,
-                      x: 1.1,
-                      xanchor: "left",
-                      yanchor: "top",
-                      bgcolor: "rgba(0,0,0,0.5)",
-                      bordercolor: "rgba(255,255,255,0.15)",
-                      borderwidth: 1,
-                      font: { color: "#f3eaff", size: 12 }
-                    },
-                    hoverdistance: 15,
-                    spikedistance: 15,
-                    margin: { t: 90, r: 160, l: 70, b: 70 },
-                    paper_bgcolor: "rgba(0,0,0,0)",
-                    plot_bgcolor: "rgba(255,255,255,0.08)",
-                    font: { color: "#f3eaff", size: 12 }
-                  }}
+                  data={buildTrace(
+                    idealPpmTrace.title,
+                    idealSeries,
+                    { phi: mapData?.tad?.phi, values: mapData?.tad?.ideal },
+                    { scale: 1.0e6, valueLabel: "ppm", valueFormat: ".2f", visibleSpecies }
+                  ).traces}
+                  layout={buildXiLayout({
+                    yTitle: "Mole fraction, X_i [ppm]",
+                    yScale: "log"
+                  })}
                   config={plotConfig}
                   style={{ width: "100%", height: "100%" }}
                   useResizeHandler
@@ -484,72 +601,29 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                 <p className="plot-caption">{mapData.ideal.note}</p>
               ) : null}
               {mapData?.tad?.ideal_note ? (
-                <p className="plot-caption">T_ad (ideal): {mapData.tad.ideal_note}</p>
+                <p className="plot-caption">T_ad (Ideal (no dissociation)): {mapData.tad.ideal_note}</p>
               ) : null}
             </div>
           ) : null}
           {activeMode === "dissociation" ? (
             <div className="plot-card">
-              <div className="plot-frame plot-frame--performance">
+              <div className="plot-card-header">
+                <h3>Equilibrium Products (Xi)</h3>
+                <div className="plot-card-meta">Fixed T_prod = {Number(mapInputs.t_k).toFixed(0)} K{reactantLabel ? `; ${reactantLabel}` : ""}</div>
+                <div className="plot-card-meta">Dashed line: adiabatic flame temperature T_ad(phi)</div>
+              </div>
+              <div className="plot-frame plot-frame--xi">
                 <Plot
-                  data={dissTrace.traces}
-                  layout={{
-                    autosize: true,
-                    title: {
-                      text: `${dissTrace.title}<br><span style="font-size:12px;opacity:0.85">Fixed T_prod = ${Number(mapInputs.t_k).toFixed(0)} K</span>`,
-                      font: { color: "#f3eaff", size: 17 }
-                    },
-                    xaxis: {
-                      title: { text: "$\\text{Equivalence ratio, }\\phi\\ \\text{[d.l.]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true,
-                      showspikes: true,
-                      spikemode: "across",
-                      spikesnap: "cursor",
-                      spikethickness: 1,
-                      spikecolor: "rgba(243, 234, 255, 0.6)"
-                    },
-                    yaxis: {
-                      title: { text: "$\\text{Mole fraction, }X_i\\ \\text{[d.l.]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true
-                    },
-                    yaxis2: {
-                      title: { text: "$\\text{Adiabatic flame temperature, }T_{ad}\\ \\text{[K]}$", font: { color: "#f3eaff", size: 13 }, standoff: 18 },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      overlaying: "y",
-                      side: "right",
-                      showgrid: false,
-                      zeroline: false
-                    },
-                    showlegend: true,
-                    legend: {
-                      orientation: "v",
-                      y: 1.0,
-                      x: 1.1,
-                      xanchor: "left",
-                      yanchor: "top",
-                      bgcolor: "rgba(0,0,0,0.5)",
-                      bordercolor: "rgba(255,255,255,0.15)",
-                      borderwidth: 1,
-                      font: { color: "#f3eaff", size: 12 }
-                    },
-                    hoverdistance: 15,
-                    spikedistance: 15,
-                    margin: { t: 90, r: 160, l: 70, b: 70 },
-                    paper_bgcolor: "rgba(0,0,0,0)",
-                    plot_bgcolor: "rgba(255,255,255,0.08)",
-                    font: { color: "#f3eaff", size: 12 }
-                  }}
+                  data={buildTrace(
+                    dissTrace.title,
+                    dissSeries,
+                    { phi: mapData?.tad?.phi, values: mapData?.tad?.dissociation },
+                    { visibleSpecies }
+                  ).traces}
+                  layout={buildXiLayout({
+                    yTitle: "Mole fraction, X_i [-]",
+                    yScale: "linear"
+                  })}
                   config={plotConfig}
                   style={{ width: "100%", height: "100%" }}
                   useResizeHandler
@@ -559,73 +633,29 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                 <p className="plot-caption">{mapData.dissociation.note}</p>
               ) : null}
               {mapData?.tad?.dissociation_note ? (
-                <p className="plot-caption">T_ad (dissociation): {mapData.tad.dissociation_note}</p>
+                <p className="plot-caption">T_ad (Equilibrium (dissociation)): {mapData.tad.dissociation_note}</p>
               ) : null}
             </div>
           ) : null}
           {activeMode === "dissociation" ? (
             <div className="plot-card">
-              <div className="plot-frame plot-frame--performance">
+              <div className="plot-card-header">
+                <h3>Equilibrium Products (ppm)</h3>
+                <div className="plot-card-meta">Fixed T_prod = {Number(mapInputs.t_k).toFixed(0)} K{reactantLabel ? `; ${reactantLabel}` : ""}</div>
+                <div className="plot-card-meta">Dashed line: adiabatic flame temperature T_ad(phi)</div>
+              </div>
+              <div className="plot-frame plot-frame--xi">
                 <Plot
-                  data={dissPpmTrace.traces}
-                  layout={{
-                    autosize: true,
-                    title: {
-                      text: `${dissPpmTrace.title}<br><span style="font-size:12px;opacity:0.85">Fixed T_prod = ${Number(mapInputs.t_k).toFixed(0)} K</span>`,
-                      font: { color: "#f3eaff", size: 17 }
-                    },
-                    xaxis: {
-                      title: { text: "$\\text{Equivalence ratio, }\\phi\\ \\text{[d.l.]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true,
-                      showspikes: true,
-                      spikemode: "across",
-                      spikesnap: "cursor",
-                      spikethickness: 1,
-                      spikecolor: "rgba(243, 234, 255, 0.6)"
-                    },
-                    yaxis: {
-                      title: { text: "$\\text{Mole fraction, }X_i\\ \\text{[ppm]}$", font: { color: "#f3eaff", size: 14 } },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      type: "log",
-                      automargin: true,
-                      gridcolor: "rgba(255, 214, 153, 0.2)",
-                      griddash: "dot",
-                      showgrid: true
-                    },
-                    yaxis2: {
-                      title: { text: "$\\text{Adiabatic flame temperature, }T_{ad}\\ \\text{[K]}$", font: { color: "#f3eaff", size: 13 }, standoff: 18 },
-                      tickfont: { color: "#f3eaff", size: 11 },
-                      color: "#f3eaff",
-                      overlaying: "y",
-                      side: "right",
-                      showgrid: false,
-                      zeroline: false
-                    },
-                    showlegend: true,
-                    legend: {
-                      orientation: "v",
-                      y: 1.0,
-                      x: 1.1,
-                      xanchor: "left",
-                      yanchor: "top",
-                      bgcolor: "rgba(0,0,0,0.5)",
-                      bordercolor: "rgba(255,255,255,0.15)",
-                      borderwidth: 1,
-                      font: { color: "#f3eaff", size: 12 }
-                    },
-                    hoverdistance: 15,
-                    spikedistance: 15,
-                    margin: { t: 90, r: 160, l: 70, b: 70 },
-                    paper_bgcolor: "rgba(0,0,0,0)",
-                    plot_bgcolor: "rgba(255,255,255,0.08)",
-                    font: { color: "#f3eaff", size: 12 }
-                  }}
+                  data={buildTrace(
+                    dissPpmTrace.title,
+                    dissSeries,
+                    { phi: mapData?.tad?.phi, values: mapData?.tad?.dissociation },
+                    { scale: 1.0e6, valueLabel: "ppm", valueFormat: ".2f", visibleSpecies }
+                  ).traces}
+                  layout={buildXiLayout({
+                    yTitle: "Mole fraction, X_i [ppm]",
+                    yScale: "log"
+                  })}
                   config={plotConfig}
                   style={{ width: "100%", height: "100%" }}
                   useResizeHandler
@@ -635,11 +665,36 @@ export default function FuelXiMap({ inputs, speciesList, mode }) {
                 <p className="plot-caption">{mapData.dissociation.note}</p>
               ) : null}
               {mapData?.tad?.dissociation_note ? (
-                <p className="plot-caption">T_ad (dissociation): {mapData.tad.dissociation_note}</p>
+                <p className="plot-caption">T_ad (Equilibrium (dissociation)): {mapData.tad.dissociation_note}</p>
               ) : null}
             </div>
           ) : null}
         </div>
+        <p className="plot-caption">
+          Solid lines: species mole fractions at fixed product temperature. Dashed line: adiabatic flame temperature Tad(phi).
+          Fixed-T composition curves and adiabatic temperature line represent different thermodynamic states and should not be directly compared.
+        </p>
+        {hasTadGaps || tadFailureCount > 0 ? (
+          <p className="plot-caption">
+            No adiabatic solution at some phi values. Gaps in the dashed line indicate missing or unconverged points.
+          </p>
+        ) : null}
+        {tadMatch ? (
+          <p className="plot-caption">
+            Selected phi comparison: phi={Number.isFinite(tadMatch.phi) ? tadMatch.phi.toFixed(4) : "--"},
+            T_ad (Xi)={Number.isFinite(tadMatch.t_ad_k) ? ` ${Number(tadMatch.t_ad_k).toFixed(2)} K` : " --"}
+            {Number.isFinite(tadMatch.delta_k)
+              ? `, Delta T=${Number(tadMatch.delta_k).toFixed(2)} K, match=${tadMatch.match_ok ? "OK" : "check"}`
+              : ""}
+          </p>
+        ) : null}
+        {tadDiagnosticsTable ? (
+          <TableView
+            title={tadDiagnosticsTable.title}
+            table={tadDiagnosticsTable.table}
+            enableSort
+          />
+        ) : null}
       </div>
     </div>
   );

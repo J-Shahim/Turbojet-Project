@@ -3,3 +3,4 @@ uvicorn[standard]==0.30.6
 numpy==2.1.1
 pandas==2.2.2
 cantera==3.0.1
+pytest==8.3.2

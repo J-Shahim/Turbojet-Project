@@ -8,8 +8,7 @@ try:
 except ImportError:
     from models import FuelXiMapInputs
 from combustion_solver import (
-    adiabatic_flame_temperature_equilibrium,
-    adiabatic_flame_temperature_ideal,
+    adiabatic_flame_temperature,
     products_ideal,
     products_dissociation,
     stoich_afr,
@@ -113,21 +112,43 @@ def fuel_xi_map(inputs: FuelXiMapInputs, *, fuel_formula: str, fuel_mw: float) -
         )
 
     tad_phi = phi_values
+
+    def compute_tad_series(mode: str) -> tuple[list[float | None], list[dict[str, Any]], str | None]:
+        tad_values: list[float | None] = []
+        diagnostics: list[dict[str, Any]] = []
+        note = None
+        for phi in tad_phi:
+            f_over_a = phi * f_over_a_st
+            t_ad, _, diag = adiabatic_flame_temperature(
+                fuel_formula,
+                f_over_a,
+                fuel_mw,
+                inputs.t_fuel_k,
+                inputs.t_air_k,
+                inputs.p_pa,
+                inputs.air_model,
+                mode,
+            )
+            tad_values.append(t_ad)
+            diagnostics.append({
+                "phi": phi,
+                "t_ad_k": t_ad,
+                "converged": diag.get("converged"),
+                "iterations": diag.get("iterations"),
+                "residual_kj": diag.get("residual_kj"),
+                "note": diag.get("note"),
+                "bracket_low_k": diag.get("bracket_low_k"),
+                "bracket_high_k": diag.get("bracket_high_k"),
+            })
+            if diag.get("note") and note is None:
+                note = diag["note"]
+        return tad_values, diagnostics, note
+
     tad_ideal = []
+    tad_ideal_diag: list[dict[str, Any]] = []
     tad_note = None
-    for phi in tad_phi:
-        f_over_a = phi * f_over_a_st
-        tad, note = adiabatic_flame_temperature_ideal(
-            fuel_formula,
-            f_over_a,
-            fuel_mw,
-            298.15,
-            inputs.p_pa,
-            inputs.air_model,
-        )
-        tad_ideal.append(tad)
-        if note and tad_note is None:
-            tad_note = note
+    if inputs.include_ideal:
+        tad_ideal, tad_ideal_diag, tad_note = compute_tad_series("ideal")
 
     if inputs.include_dissociation:
         payload["dissociation"] = _compute_series(
@@ -144,27 +165,20 @@ def fuel_xi_map(inputs: FuelXiMapInputs, *, fuel_formula: str, fuel_mw: float) -
         )
 
     tad_diss = []
+    tad_diss_diag: list[dict[str, Any]] = []
     tad_diss_note = None
     if inputs.include_dissociation:
-        for phi in tad_phi:
-            f_over_a = phi * f_over_a_st
-            tad, note = adiabatic_flame_temperature_equilibrium(
-                fuel_formula,
-                f_over_a,
-                fuel_mw,
-                298.15,
-                inputs.p_pa,
-                inputs.air_model,
-            )
-            tad_diss.append(tad)
-            if note and tad_diss_note is None:
-                tad_diss_note = note
+        tad_diss, tad_diss_diag, tad_diss_note = compute_tad_series("dissociation")
 
     payload["tad"] = {
         "phi": tad_phi,
         "ideal": tad_ideal if inputs.include_ideal else [],
+        "ideal_diagnostics": tad_ideal_diag if inputs.include_ideal else [],
         "dissociation": tad_diss if inputs.include_dissociation else [],
+        "dissociation_diagnostics": tad_diss_diag if inputs.include_dissociation else [],
         "t0_k": 298.15,
+        "t_fuel_k": inputs.t_fuel_k,
+        "t_air_k": inputs.t_air_k,
         "ideal_note": tad_note,
         "dissociation_note": tad_diss_note,
     }

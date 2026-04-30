@@ -17,11 +17,27 @@ T_{ref} = 298.15\ \mathrm{K}, \qquad T_{prod} = 2000.00\ \mathrm{K}
 $$
 
 $$
+T_{prod,desired} = 2000.00\ \mathrm{K}
+$$
+
+$$
 P = 101325\ \mathrm{Pa}
 $$
 
 $$
-\frac{\dot m_f}{\dot m_a} = 0.02
+\text{Mixture input mode} = f
+$$
+
+$$
+f = \frac{\dot m_f}{\dot m_a} = 0.02
+$$
+
+$$
+f_{st} = 0.05841
+$$
+
+$$
+AFR_{st} = 17.12
 $$
 
 $$
@@ -58,7 +74,7 @@ $$
 
 ## 2. Stoichiometric air-fuel ratio
 
-Using the dry-air model,
+Using the selected air model,
 
 $$
 m_{air,st} = a\left(MW_{O_2} + 3.76MW_{N_2}\right)
@@ -77,15 +93,19 @@ $$
 ## 3. Equivalence ratio
 
 $$
-\phi = \frac{(F/A)}{(F/A)_{st}}
+\phi = \frac{f}{f_{st}},\qquad f=\phi f_{st}
 $$
 
 $$
-\phi = \frac{AFR_{st}}{AFR}
+f_{st} = 0.0584,\quad f = 0.02,\quad \phi = 0.3424
 $$
 
 $$
-\phi = \frac{17.1200}{50.0000} = 0.3424
+AFR = \frac{1}{f},\qquad AFR_{st} = \frac{1}{f_{st}}
+$$
+
+$$
+AFR = 50,\quad AFR_{st} = 17.12
 $$
 
 Since $\phi < 1$, the mixture is **lean**.
@@ -218,7 +238,39 @@ The equilibrium value is lower because dissociation redistributes energy into mi
 
 ---
 
-## 7. Sensible thermodynamic properties
+## 7. First and Second Law (general to reduced)
+
+General control-volume energy balance:
+
+$$
+\frac{dE_{cv}}{dt}=\dot Q-\dot W+\sum_{in}\dot m\left(h+\frac{V^2}{2}+gz\right)-\sum_{out}\dot m\left(h+\frac{V^2}{2}+gz\right)
+$$
+
+Assumptions: steady, adiabatic, \dot W\approx0, \Delta KE\approx0, \Delta PE\approx0.
+
+$$
+\sum_{in}\dot m h=\sum_{out}\dot m h
+$$
+
+$$
+H_{\mathrm{react}}=\sum_{j \in R} n_j\bar h_j(T_j),\quad H_{\mathrm{prod}}=\sum_{i \in P} n_i\bar h_i(T)
+$$
+
+General control-volume entropy balance:
+
+$$
+\frac{dS_{cv}}{dt}=\sum_k\frac{\dot Q_k}{T_k}+\sum_{in}\dot m s-\sum_{out}\dot m s+\dot S_{\mathrm{gen}},\quad \dot S_{\mathrm{gen}}\ge0
+$$
+
+Assumptions: steady, adiabatic.
+
+$$
+\sum_{out}\dot m s-\sum_{in}\dot m s=\dot S_{\mathrm{gen}}\ge0
+$$
+
+---
+
+## 8. Sensible thermodynamic properties
 
 The solver reports sensible enthalpy and entropy relative to $T_{ref}$:
 
@@ -250,7 +302,35 @@ $$
 
 ---
 
-## 8. Gibbs free energy and equilibrium
+## 9. Gibbs free energy and equilibrium
+
+Start from the combined First + Second Law identity:
+
+$$
+dU = T\,dS - P\,dV + \sum_i \mu_i\,dn_i
+$$
+
+Helmholtz free energy (intermediate):
+
+$$
+A = U - TS
+$$
+
+$$
+dA = -S\,dT - P\,dV + \sum_i \mu_i\,dn_i
+$$
+
+Gibbs free energy:
+
+$$
+G = A + PV = U - TS + PV
+$$
+
+$$
+dG = -S\,dT + V\,dP + \sum_i \mu_i\,dn_i
+$$
+
+At fixed T,P: equilibrium minimizes total G.
 
 $$
 \bar g_i^{\circ}(T) = \bar h_i^{\circ}(T) - T\bar s_i^{\circ}(T)
@@ -264,16 +344,6 @@ $$
 
 $$
 C(s),\ H_2,\ O_2,\ N_2 \quad \text{at} \quad P^{\circ} = 1\ \mathrm{atm}
-$$
-
-At constant temperature and pressure,
-
-$$
-\Delta G = \Delta H - T\Delta S
-$$
-
-$$
-Q = \Delta H = \Delta G + T\Delta S
 $$
 
 For a general reaction,
